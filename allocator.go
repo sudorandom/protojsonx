@@ -37,15 +37,12 @@ func (b *BumpAllocator) Reset() {
 func (b *BumpAllocator) New(t reflect.Type) reflect.Value {
 	size := int(t.Size())
 	align := int(t.Align())
-	
+
 	// Align offset to type requirements
 	b.off = (b.off + align - 1) &^ (align - 1)
-	
+
 	if b.off+size > len(b.chunks[b.curr]) {
-		nextChunkSize := 4096
-		if size > nextChunkSize {
-			nextChunkSize = size
-		}
+		nextChunkSize := max(size, 4096)
 		b.curr++
 		if b.curr >= len(b.chunks) {
 			b.chunks = append(b.chunks, make([]byte, nextChunkSize))
@@ -54,7 +51,7 @@ func (b *BumpAllocator) New(t reflect.Type) reflect.Value {
 		}
 		b.off = 0
 	}
-	
+
 	ptr := unsafe.Pointer(&b.chunks[b.curr][b.off])
 	b.off += size
 	return reflect.NewAt(t, ptr)
