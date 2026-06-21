@@ -12,19 +12,19 @@ It uses a dynamic table-driven parser and unsafe pointer offset arithmetic to av
 
 Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `protojson`, standard binary protobuf wire format (`proto`), and `protojsonx`.
 
-| Case | protojson | protojsonx | protojsonx ZeroCopy | proto binary |
-|---|---:|---:|---:|---:|
-| Simple marshal | 5305 ns/op, 63 allocs | 853 ns/op, 1 alloc | n/a | 1462 ns/op, 13 allocs |
-| Simple unmarshal | 9236 ns/op, 129 allocs | 2486 ns/op, 35 allocs | 2282 ns/op, 13 allocs | 1988 ns/op, 45 allocs |
-| Complex marshal | 7378 ns/op, 69 allocs | 1195 ns/op, 3 allocs | n/a | 1326 ns/op, 9 allocs |
-| Complex unmarshal | 12149 ns/op, 153 allocs | 3470 ns/op, 28 allocs | 3285 ns/op, 17 allocs | 1713 ns/op, 33 allocs |
+| Case | protojson | protojsonx (Standard) | protojsonx (ZeroCopy) | protojsonx (ZeroCopy + Allocator) | proto binary |
+|---|---:|---:|---:|---:|---:|
+| Simple marshal | 5091 ns/op, 62 allocs | 842 ns/op, 1 alloc | n/a | n/a | 1365 ns/op, 13 allocs |
+| Simple unmarshal | 9209 ns/op, 129 allocs | 2495 ns/op, 35 allocs | 2257 ns/op, 13 allocs | 2137 ns/op, 10 allocs | 1908 ns/op, 45 allocs |
+| Complex marshal | 6763 ns/op, 69 allocs | 1160 ns/op, 3 allocs | n/a | n/a | 1257 ns/op, 9 allocs |
+| Complex unmarshal | 11870 ns/op, 153 allocs | 3303 ns/op, 28 allocs | 3190 ns/op, 17 allocs | 3020 ns/op, 12 allocs | 1671 ns/op, 33 allocs |
 
 ### 🚀 Summary
 
 - **Marshal is about 6x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 3.5-4x faster than `protojson`**, depending on whether `ZeroCopy` is enabled.
-- **Marshal is competitive with binary protobuf**, and is faster than binary marshal for the complex benchmark shape.
-- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **28 allocs/op**, or **17 allocs/op** with `ZeroCopy`.
+- **Unmarshal is about 3.5-4x faster than `protojson`**, depending on configured options.
+- **Marshal is competitive with binary protobuf**, and is faster than binary marshal for both benchmark shapes.
+- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **28 allocs/op** (Standard), **17 allocs/op** (ZeroCopy), or **12 allocs/op** (ZeroCopy + Allocator).
 
 ## Install
 
@@ -50,6 +50,44 @@ go get github.com/sudorandom/protojsonx/protojsonxgrpc
 
 - `DiscardUnknown bool`: ignore unknown keys after validating their JSON value.
 - `ZeroCopy bool`: alias unescaped input string bytes directly as Go strings.
+- `Allocator Allocator`: a custom allocator to optimize allocation of nested submessage structures.
+
+### Allocator Configuration
+
+By default, Go's reflection API allocates nested submessages individually on the Go heap via `reflect.New`. In high-throughput pathways, this can lead to memory fragmentation and garbage collection pressure.
+
+`protojsonx` provides a built-in pointer-stable, thread-local monotonic `BumpAllocator` out of the box.
+
+#### Using the Built-in BumpAllocator
+
+To use the built-in allocator, instantiate it, pass it to `UnmarshalOptions`, and call `Reset()` on the allocator to reuse its underlying buffers across requests/cycles:
+
+```go
+// Create or reuse an allocator (not thread-safe; reuse per-goroutine or via a pool)
+alloc := protojsonx.NewBumpAllocator()
+
+// Reset allocator buffers from any previous runs
+alloc.Reset()
+
+var out MyMessage
+err := protojsonx.UnmarshalOptions{
+	Allocator: alloc,
+}.Unmarshal(data, &out)
+```
+
+> [!NOTE]
+> Ensure that the lifetime of the `BumpAllocator` matches or outlives the decoded message. Only call `Reset()` when you are completely finished using the decoded structure.
+
+#### Implementing a Custom Allocator
+
+If you want to plug in your own memory management strategy (such as integrating with Go's experimental `arena` package or CGO-based allocators), you can implement the `Allocator` interface:
+
+```go
+type Allocator interface {
+	New(t reflect.Type) reflect.Value
+}
+```
+
 
 ### ZeroCopy Caveats
 

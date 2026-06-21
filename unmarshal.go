@@ -26,9 +26,21 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type Allocator interface {
+	New(t reflect.Type) reflect.Value
+}
+
 type UnmarshalOptions struct {
 	DiscardUnknown bool
 	ZeroCopy       bool
+	Allocator      Allocator
+}
+
+func allocate(t reflect.Type, opts UnmarshalOptions) reflect.Value {
+	if opts.Allocator != nil {
+		return opts.Allocator.New(t)
+	}
+	return reflect.New(t)
 }
 
 // decBuffer is a cursor over the input JSON. The parser is intentionally
@@ -932,7 +944,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			return inst.msgTable.err
 		}
 		if *subMsgPtrPtr == nil {
-			newVal := reflect.New(inst.msgTable.goType)
+			newVal := allocate(inst.msgTable.goType, opts)
 			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
 		}
 		return inst.msgTable.unmarshalFrom(*subMsgPtrPtr, d, opts)
@@ -943,7 +955,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			return nil
 		}
 		if *subMsgPtrPtr == nil {
-			newVal := reflect.New(inst.elemType)
+			newVal := allocate(inst.elemType, opts)
 			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
 		}
 		val, err := d.readStringBytes()
@@ -963,7 +975,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			return nil
 		}
 		if *subMsgPtrPtr == nil {
-			newVal := reflect.New(inst.elemType)
+			newVal := allocate(inst.elemType, opts)
 			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
 		}
 		val, err := d.readStringBytes()
@@ -992,7 +1004,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 				sliceVal.Set(reflect.Append(sliceVal, reflect.Zero(sliceVal.Type().Elem())))
 				return nil
 			}
-			newElem := reflect.New(inst.elemType)
+			newElem := allocate(inst.elemType, opts)
 			err := inst.msgTable.unmarshalFrom(unsafe.Pointer(newElem.Pointer()), d, opts)
 			if err != nil {
 				return err

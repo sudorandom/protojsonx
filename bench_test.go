@@ -128,6 +128,53 @@ func BenchmarkProtojsonx_ZeroCopy_Unmarshal(b *testing.B) {
 	}
 }
 
+func BenchmarkProtojsonx_Allocator_Unmarshal(b *testing.B) {
+	p := createUserProfile()
+	data, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+	alloc := NewBumpAllocator()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		alloc.Reset()
+		var out testpb.UserProfile
+		err := UnmarshalOptions{
+			Allocator: alloc,
+		}.Unmarshal(data, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkProtojsonx_ZeroCopy_Allocator_Unmarshal(b *testing.B) {
+	p := createUserProfile()
+	data, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+	alloc := NewBumpAllocator()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		alloc.Reset()
+		var out testpb.UserProfile
+		err := UnmarshalOptions{
+			ZeroCopy:  true,
+			Allocator: alloc,
+		}.Unmarshal(data, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkProtoBinary_Marshal(b *testing.B) {
 	p := createUserProfile()
 	b.ResetTimer()
@@ -274,6 +321,54 @@ func BenchmarkComplexProtojsonx_ZeroCopy_Unmarshal(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkComplexProtojsonx_Allocator_Unmarshal(b *testing.B) {
+	p := createBenchComplexMessage()
+	data, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+	alloc := NewBumpAllocator()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		alloc.Reset()
+		var out testpb.ComplexMessage
+		err := UnmarshalOptions{
+			Allocator: alloc,
+		}.Unmarshal(data, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkComplexProtojsonx_ZeroCopy_Allocator_Unmarshal(b *testing.B) {
+	p := createBenchComplexMessage()
+	data, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+	alloc := NewBumpAllocator()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		alloc.Reset()
+		var out testpb.ComplexMessage
+		err := UnmarshalOptions{
+			ZeroCopy:  true,
+			Allocator: alloc,
+		}.Unmarshal(data, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 
 func BenchmarkComplexProtoBinary_Marshal(b *testing.B) {
 	p := createBenchComplexMessage()
