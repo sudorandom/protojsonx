@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/sudorandom/protojsonx/pb";
+option go_package = "github.com/sudorandom/protojsonx/internal/testpb";
 
 enum UserStatus {
   STATUS_UNSPECIFIED = 0;

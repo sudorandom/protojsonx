@@ -5,8 +5,8 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/sudorandom/protojsonx"
-	"github.com/sudorandom/protojsonx/pb"
 	"github.com/sudorandom/protojsonx/protojsonxconnect"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func ExampleCodec() {
@@ -16,20 +16,16 @@ func ExampleCodec() {
 		},
 	}
 
-	data, err := codec.Marshal(&pb.UserProfile{
-		Id:       "usr-789",
-		Name:     "Alice",
-		IsActive: true,
-	})
+	data, err := codec.Marshal(wrapperspb.String("hello"))
 	if err != nil {
 		panic(err)
 	}
 
-	var out pb.UserProfile
+	var out wrapperspb.StringValue
 	if err := codec.Unmarshal(data, &out); err != nil {
 		panic(err)
 	}
 
-	fmt.Println(codec.Name(), out.Id, out.Name, out.IsActive)
-	// Output: json usr-789 Alice true
+	fmt.Println(codec.Name(), out.Value)
+	// Output: json hello
 }

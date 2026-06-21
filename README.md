@@ -140,6 +140,12 @@ Keep all module files up to date:
 just mod-tidy
 ```
 
+Regenerate internal protobuf fixtures used by tests and benchmarks:
+
+```sh
+just generate-protos
+```
+
 Run benchmarks:
 
 ```sh

@@ -15,6 +15,10 @@ lint:
 bench:
     mise exec -- go test -bench=. -benchmem
 
+# Regenerate internal protobuf fixtures used by tests and benchmarks.
+generate-protos:
+    mise exec -- buf generate --template buf.generate.yaml
+
 # Keep go.mod/go.sum files synchronized for the root module and nested modules.
 mod-tidy:
     mise exec -- go mod tidy

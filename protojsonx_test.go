@@ -9,15 +9,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sudorandom/protojsonx/pb"
+	"github.com/sudorandom/protojsonx/internal/testpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func createComplexMessage() *pb.ComplexMessage {
-	return &pb.ComplexMessage{
+func createComplexMessage() *testpb.ComplexMessage {
+	return &testpb.ComplexMessage{
 		DoubleField:    123.456,
 		FloatField:     78.9,
 		Int32Field:     -42,
@@ -33,15 +33,15 @@ func createComplexMessage() *pb.ComplexMessage {
 		BoolField:      true,
 		StringField:    "hello world \n \t \" \\",
 		BytesField:     []byte{1, 2, 3, 4, 5},
-		EnumField:      pb.TestEnum_TEST_ENUM_FIRST,
+		EnumField:      testpb.TestEnum_TEST_ENUM_FIRST,
 		TimestampField: timestamppb.New(time.Date(2026, 6, 21, 8, 30, 0, 123000000, time.UTC)),
 		DurationField:  durationpb.New(123*time.Second + 456*time.Millisecond),
-		ChildField: &pb.ChildMessage{
+		ChildField: &testpb.ChildMessage{
 			Name:  "nested child",
 			Value: 99,
 		},
 		RepeatedString: []string{"apple", "banana", "cherry"},
-		RepeatedMessage: []*pb.ChildMessage{
+		RepeatedMessage: []*testpb.ChildMessage{
 			{Name: "item1", Value: 10},
 			{Name: "item2", Value: 20},
 		},
@@ -63,7 +63,7 @@ func TestComprehensiveShapes(t *testing.T) {
 		}
 
 		// Unmarshal using protojsonx
-		var out pb.ComplexMessage
+		var out testpb.ComplexMessage
 		err = Unmarshal(data, &out)
 		if err != nil {
 			t.Fatal(err)
@@ -83,7 +83,7 @@ func TestComprehensiveShapes(t *testing.T) {
 		}
 
 		// Unmarshal using standard protojson
-		var out pb.ComplexMessage
+		var out testpb.ComplexMessage
 		err = protojson.Unmarshal(data, &out)
 		if err != nil {
 			t.Fatalf("protojson failed to parse protojsonx output: %v", err)
@@ -100,7 +100,7 @@ func TestComprehensiveShapes(t *testing.T) {
 		}
 
 		// Unmarshal using protojsonx
-		var tableOut pb.ComplexMessage
+		var tableOut testpb.ComplexMessage
 		err = Unmarshal(stdData, &tableOut)
 		if err != nil {
 			t.Fatalf("protojsonx failed to parse protojson output: %v", err)
@@ -117,7 +117,7 @@ func TestComprehensiveShapes(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		var out pb.ComplexMessage
+		var out testpb.ComplexMessage
 		err = UnmarshalOptions{ZeroCopy: true}.Unmarshal(data, &out)
 		if err != nil {
 			t.Fatal(err)
@@ -129,7 +129,7 @@ func TestComprehensiveShapes(t *testing.T) {
 	})
 
 	t.Run("EmitUnpopulated Option", func(t *testing.T) {
-		emptyMsg := &pb.ComplexMessage{}
+		emptyMsg := &testpb.ComplexMessage{}
 
 		// Default: false
 		dataDefault, err := Marshal(emptyMsg)
@@ -167,7 +167,7 @@ func TestComprehensiveShapes(t *testing.T) {
 	})
 
 	t.Run("Float extreme values", func(t *testing.T) {
-		extremeMsg := &pb.ComplexMessage{
+		extremeMsg := &testpb.ComplexMessage{
 			DoubleField: math.NaN(),
 			FloatField:  float32(math.Inf(1)),
 		}
@@ -182,7 +182,7 @@ func TestComprehensiveShapes(t *testing.T) {
 			t.Errorf("NaN/Inf formatting incorrect: %s", string(data))
 		}
 
-		var out pb.ComplexMessage
+		var out testpb.ComplexMessage
 		if err := Unmarshal(data, &out); err != nil {
 			t.Fatalf("failed to unmarshal special floats: %v", err)
 		}
@@ -193,14 +193,14 @@ func TestComprehensiveShapes(t *testing.T) {
 }
 
 func TestUnmarshalRejectsTrailingData(t *testing.T) {
-	var out pb.Address
+	var out testpb.Address
 	if err := Unmarshal([]byte(`{"street":"123"} trailing`), &out); err == nil {
 		t.Fatal("expected trailing data error")
 	}
 }
 
 func TestDiscardUnknownRejectsInvalidJSONValue(t *testing.T) {
-	var out pb.UserProfile
+	var out testpb.UserProfile
 	err := (UnmarshalOptions{DiscardUnknown: true}).Unmarshal([]byte(`{"unknown":,"id":"123"}`), &out)
 	if err == nil {
 		t.Fatal("expected invalid unknown value to be rejected")
@@ -208,7 +208,7 @@ func TestDiscardUnknownRejectsInvalidJSONValue(t *testing.T) {
 }
 
 func TestUnmarshalUnicodeEscapes(t *testing.T) {
-	var out pb.Address
+	var out testpb.Address
 	if err := Unmarshal([]byte(`{"street":"\u20ac \ud83d\ude00"}`), &out); err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestUnmarshalRejectsMalformedStringEscapes(t *testing.T) {
 	}
 
 	for _, data := range tests {
-		var out pb.Address
+		var out testpb.Address
 		if err := Unmarshal(data, &out); err == nil {
 			t.Fatalf("expected malformed string error for %s", data)
 		}
@@ -233,14 +233,14 @@ func TestUnmarshalRejectsMalformedStringEscapes(t *testing.T) {
 }
 
 func TestUnmarshalRejectsUnknownEnumName(t *testing.T) {
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal([]byte(`{"enumField":"NOT_A_REAL_ENUM"}`), &out); err == nil {
 		t.Fatal("expected unknown enum error")
 	}
 }
 
 func TestUnmarshalRejectsQuotedRegularFloat(t *testing.T) {
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal([]byte(`{"doubleField":"1.25"}`), &out); err == nil {
 		t.Fatal("expected quoted non-special float error")
 	}
@@ -252,20 +252,20 @@ func TestUnmarshalRejectsDuplicateFieldNames(t *testing.T) {
 		[]byte(`{"isActive":true,"is_active":false}`),
 	}
 	for _, data := range userPayloads {
-		var out pb.UserProfile
+		var out testpb.UserProfile
 		if err := Unmarshal(data, &out); err == nil {
 			t.Fatalf("expected duplicate field error for user payload %s", data)
 		}
 	}
 
-	var complex pb.ComplexMessage
+	var complex testpb.ComplexMessage
 	if err := Unmarshal([]byte(`{"doubleField":1,"double_field":2}`), &complex); err == nil {
 		t.Fatal("expected duplicate field error for complex payload")
 	}
 }
 
 func TestUnmarshalResetsExistingMessage(t *testing.T) {
-	out := &pb.UserProfile{
+	out := &testpb.UserProfile{
 		Id:   "old",
 		Name: "stale",
 		Metadata: map[string]string{
@@ -289,7 +289,7 @@ func TestUnmarshalResetsExistingMessage(t *testing.T) {
 }
 
 func TestUnmarshalNullScalarsAndContainers(t *testing.T) {
-	out := &pb.UserProfile{
+	out := &testpb.UserProfile{
 		Id:       "old",
 		Age:      42,
 		IsActive: true,
@@ -308,7 +308,7 @@ func TestUnmarshalNullScalarsAndContainers(t *testing.T) {
 
 func TestUnmarshalNullMessages(t *testing.T) {
 	data := []byte(`{"childField":null,"timestampField":null,"durationField":null}`)
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -318,8 +318,8 @@ func TestUnmarshalNullMessages(t *testing.T) {
 }
 
 func TestRepeatedMessageNullElementRoundTrip(t *testing.T) {
-	msg := &pb.ComplexMessage{
-		RepeatedMessage: []*pb.ChildMessage{
+	msg := &testpb.ComplexMessage{
+		RepeatedMessage: []*testpb.ChildMessage{
 			nil,
 			{Name: "after nil", Value: 7},
 		},
@@ -333,7 +333,7 @@ func TestRepeatedMessageNullElementRoundTrip(t *testing.T) {
 		t.Fatalf("expected nil repeated message element to marshal as null: %s", data)
 	}
 
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +343,7 @@ func TestRepeatedMessageNullElementRoundTrip(t *testing.T) {
 }
 
 func TestDurationPrecision(t *testing.T) {
-	msg := &pb.ComplexMessage{
+	msg := &testpb.ComplexMessage{
 		DurationField: &durationpb.Duration{
 			Seconds: 9007199254740991,
 			Nanos:   123456789,
@@ -358,7 +358,7 @@ func TestDurationPrecision(t *testing.T) {
 		t.Fatalf("duration lost precision: %s", data)
 	}
 
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +369,7 @@ func TestDurationPrecision(t *testing.T) {
 }
 
 func TestNegativeDurationRoundTrip(t *testing.T) {
-	msg := &pb.ComplexMessage{
+	msg := &testpb.ComplexMessage{
 		DurationField: &durationpb.Duration{
 			Seconds: 0,
 			Nanos:   -500000000,
@@ -384,7 +384,7 @@ func TestNegativeDurationRoundTrip(t *testing.T) {
 		t.Fatalf("negative subsecond duration formatted incorrectly: %s", data)
 	}
 
-	var out pb.ComplexMessage
+	var out testpb.ComplexMessage
 	if err := Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestNegativeDurationRoundTrip(t *testing.T) {
 
 func TestDiscardUnknownSkipsNestedMixedValues(t *testing.T) {
 	data := []byte(`{"unknown":{"arr":[{"nested":true},["x",{"y":1}]],"keep":null},"id":"123"}`)
-	var out pb.UserProfile
+	var out testpb.UserProfile
 	if err := (UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, &out); err != nil {
 		t.Fatal(err)
 	}
@@ -406,8 +406,8 @@ func TestDiscardUnknownSkipsNestedMixedValues(t *testing.T) {
 
 func TestConcurrentColdTableUse(t *testing.T) {
 	cacheMutex.Lock()
-	delete(tableCache, reflect.TypeOf(pb.ComplexMessage{}))
-	delete(tableCache, reflect.TypeOf(pb.ChildMessage{}))
+	delete(tableCache, reflect.TypeOf(testpb.ComplexMessage{}))
+	delete(tableCache, reflect.TypeOf(testpb.ChildMessage{}))
 	cacheMutex.Unlock()
 
 	const workers = 128
@@ -441,7 +441,7 @@ func TestConcurrentColdTableUse(t *testing.T) {
 }
 
 func TestAddressAndSessions(t *testing.T) {
-	addr := &pb.Address{
+	addr := &testpb.Address{
 		Street:  "123 Main St",
 		City:    "Seattle",
 		State:   "WA",
@@ -454,14 +454,14 @@ func TestAddressAndSessions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var out pb.Address
+	var out testpb.Address
 	err = Unmarshal(data, &out)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if out.Street != addr.Street || out.City != addr.City {
-		t.Errorf("Address mismatch: %+v vs %+v", &out, addr)
+		t.Errorf("testpb.Address mismatch: %+v vs %+v", &out, addr)
 	}
 }
 
@@ -489,19 +489,19 @@ func FuzzUnmarshal(f *testing.F) {
 	f.Add([]byte(`{"stringField":"ok"} trailing`))
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var msg pb.ComplexMessage
+		var msg testpb.ComplexMessage
 		_ = Unmarshal(data, &msg)
 
-		var msgZC pb.ComplexMessage
+		var msgZC testpb.ComplexMessage
 		_ = UnmarshalOptions{ZeroCopy: true}.Unmarshal(data, &msgZC)
 
-		var addr pb.Address
+		var addr testpb.Address
 		_ = Unmarshal(data, &addr)
 	})
 }
 
 func TestReflectCompiles(t *testing.T) {
-	tbl := GetTable(&pb.ComplexMessage{})
+	tbl := GetTable(&testpb.ComplexMessage{})
 	if tbl == nil {
 		t.Fatal("table compilation returned nil")
 		return

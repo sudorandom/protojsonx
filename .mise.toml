@@ -1,5 +1,6 @@
 [tools]
 go = "1.26.4"
+buf = "latest"
 protobuf = "latest"
 protoc-gen-go = "latest"
 golangci-lint = "latest"
