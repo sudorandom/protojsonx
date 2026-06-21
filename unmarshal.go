@@ -23,6 +23,7 @@ import (
 	"time"
 	"unsafe"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -154,18 +155,11 @@ func unescapeUnicodeString(s []byte) ([]byte, error) {
 }
 
 func (d *decBuffer) readInt32() (int32, error) {
-	d.skipWhitespace()
-	start := d.off
-	if d.off < len(d.data) && d.data[d.off] == '-' {
-		d.off++
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
 	}
-	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-		d.off++
-	}
-	if d.off == start {
-		return 0, errors.New("expected number")
-	}
-	v, err := strconv.ParseInt(string(d.data[start:d.off]), 10, 32)
+	v, err := strconv.ParseInt(string(token), 10, 32)
 	return int32(v), err
 }
 
@@ -178,29 +172,19 @@ func (d *decBuffer) readInt64() (int64, error) {
 		}
 		return strconv.ParseInt(string(s), 10, 64)
 	}
-	start := d.off
-	if d.off < len(d.data) && d.data[d.off] == '-' {
-		d.off++
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
 	}
-	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-		d.off++
-	}
-	if d.off == start {
-		return 0, errors.New("expected number")
-	}
-	return strconv.ParseInt(string(d.data[start:d.off]), 10, 64)
+	return strconv.ParseInt(string(token), 10, 64)
 }
 
 func (d *decBuffer) readUint32() (uint32, error) {
-	d.skipWhitespace()
-	start := d.off
-	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-		d.off++
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
 	}
-	if d.off == start {
-		return 0, errors.New("expected number")
-	}
-	v, err := strconv.ParseUint(string(d.data[start:d.off]), 10, 32)
+	v, err := strconv.ParseUint(string(token), 10, 32)
 	return uint32(v), err
 }
 
@@ -213,14 +197,11 @@ func (d *decBuffer) readUint64() (uint64, error) {
 		}
 		return strconv.ParseUint(string(s), 10, 64)
 	}
-	start := d.off
-	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-		d.off++
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
 	}
-	if d.off == start {
-		return 0, errors.New("expected number")
-	}
-	return strconv.ParseUint(string(d.data[start:d.off]), 10, 64)
+	return strconv.ParseUint(string(token), 10, 64)
 }
 
 func (d *decBuffer) readFloat32() (float32, error) {
@@ -233,17 +214,11 @@ func (d *decBuffer) readFloat32() (float32, error) {
 		v, err := parseFloatLiteral(unsafeString(s), 32)
 		return float32(v), err
 	}
-	start := d.off
-	if d.off < len(d.data) && d.data[d.off] == '-' {
-		d.off++
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
 	}
-	for d.off < len(d.data) && ((d.data[d.off] >= '0' && d.data[d.off] <= '9') || d.data[d.off] == '.' || d.data[d.off] == 'e' || d.data[d.off] == 'E' || d.data[d.off] == '+' || d.data[d.off] == '-') {
-		d.off++
-	}
-	if d.off == start {
-		return 0, errors.New("expected float")
-	}
-	v, err := strconv.ParseFloat(string(d.data[start:d.off]), 32)
+	v, err := strconv.ParseFloat(string(token), 32)
 	return float32(v), err
 }
 
@@ -256,17 +231,72 @@ func (d *decBuffer) readFloat64() (float64, error) {
 		}
 		return parseFloatLiteral(unsafeString(s), 64)
 	}
+	token, err := d.readJSONNumberToken()
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(string(token), 64)
+}
+
+func (d *decBuffer) readJSONNumberToken() ([]byte, error) {
+	d.skipWhitespace()
 	start := d.off
+
 	if d.off < len(d.data) && d.data[d.off] == '-' {
 		d.off++
 	}
-	for d.off < len(d.data) && ((d.data[d.off] >= '0' && d.data[d.off] <= '9') || d.data[d.off] == '.' || d.data[d.off] == 'e' || d.data[d.off] == 'E' || d.data[d.off] == '+' || d.data[d.off] == '-') {
+	if d.off >= len(d.data) {
+		return nil, errors.New("invalid JSON number")
+	}
+	if d.data[d.off] == '0' {
 		d.off++
+	} else if d.data[d.off] >= '1' && d.data[d.off] <= '9' {
+		d.off++
+		for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
+			d.off++
+		}
+	} else {
+		return nil, errors.New("expected number")
+	}
+
+	if d.off < len(d.data) && d.data[d.off] == '.' {
+		d.off++
+		if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
+			return nil, errors.New("invalid JSON number")
+		}
+		for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
+			d.off++
+		}
+	}
+
+	if d.off < len(d.data) && (d.data[d.off] == 'e' || d.data[d.off] == 'E') {
+		d.off++
+		if d.off < len(d.data) && (d.data[d.off] == '+' || d.data[d.off] == '-') {
+			d.off++
+		}
+		if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
+			return nil, errors.New("invalid JSON number")
+		}
+		for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
+			d.off++
+		}
+	}
+
+	if d.off < len(d.data) && !isJSONValueTerminator(d.data[d.off]) {
+		d.off++
+		for d.off < len(d.data) && !isJSONValueTerminator(d.data[d.off]) {
+			d.off++
+		}
+		return nil, errors.New("invalid JSON number")
 	}
 	if d.off == start {
-		return 0, errors.New("expected float")
+		return nil, errors.New("expected number")
 	}
-	return strconv.ParseFloat(string(d.data[start:d.off]), 64)
+	return d.data[start:d.off], nil
+}
+
+func isJSONValueTerminator(c byte) bool {
+	return c == ',' || c == '}' || c == ']' || c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
 func parseFloatLiteral(s string, bitSize int) (float64, error) {
@@ -478,14 +508,19 @@ func Unmarshal(data []byte, msg proto.Message) error {
 // type. A successful decode consumes the entire input, including trailing
 // whitespace, and clears omitted fields on reused target messages.
 func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
+	val := reflect.ValueOf(msg)
+	if !val.IsValid() || val.Kind() != reflect.Pointer || val.IsNil() {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
+	if isProtojsonCustomWellKnown(msg.ProtoReflect().Descriptor().FullName()) {
+		return protojson.UnmarshalOptions{
+			DiscardUnknown: o.DiscardUnknown,
+		}.Unmarshal(data, msg)
+	}
+
 	table, err := getTable(msg)
 	if err != nil {
 		return err
-	}
-
-	val := reflect.ValueOf(msg)
-	if val.Kind() != reflect.Pointer {
-		return errors.New("unmarshal target must be pointer")
 	}
 	ptr := val.UnsafePointer()
 
@@ -532,7 +567,7 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 			*(*[]string)(fieldPtr) = nil
 		case TypeMapStringString:
 			*(*map[string]string)(fieldPtr) = nil
-		case TypeMessage, TypeTimestamp, TypeDuration:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
 			*(*unsafe.Pointer)(fieldPtr) = nil
 		case TypeRepeatedMessage:
 			*(*[]unsafe.Pointer)(fieldPtr) = nil
@@ -576,7 +611,7 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 		*(*[]string)(fieldPtr) = nil
 	case TypeMapStringString:
 		*(*map[string]string)(fieldPtr) = nil
-	case TypeMessage, TypeTimestamp, TypeDuration:
+	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
 		*(*unsafe.Pointer)(fieldPtr) = nil
 	case TypeRepeatedMessage:
 		*(*[]unsafe.Pointer)(fieldPtr) = nil
@@ -633,7 +668,7 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 			if len(*(*map[string]string)(fieldPtr)) != 0 {
 				return false
 			}
-		case TypeMessage, TypeTimestamp, TypeDuration:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
 			if *(*unsafe.Pointer)(fieldPtr) != nil {
 				return false
 			}
@@ -988,6 +1023,18 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		*(*int64)(unsafe.Add(*subMsgPtrPtr, inst.secondsOffset)) = secs
 		*(*int32)(unsafe.Add(*subMsgPtrPtr, inst.nanosOffset)) = int32(nanos)
+	case TypeProtojsonWellKnown:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		if *subMsgPtrPtr == nil {
+			newVal := allocate(inst.elemType, opts)
+			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+		}
+		msg := reflect.NewAt(inst.elemType, *subMsgPtrPtr).Interface().(proto.Message)
+		start := d.off
+		if err := d.skipValue(); err != nil {
+			return err
+		}
+		return protojson.Unmarshal(d.data[start:d.off], msg)
 	case TypeRepeatedMessage:
 		if inst.msgNeedsWait {
 			if err := inst.msgTable.wait(); err != nil {

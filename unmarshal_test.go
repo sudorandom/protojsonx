@@ -55,6 +55,33 @@ func TestUnmarshalRejectsQuotedRegularFloat(t *testing.T) {
 	require.Error(t, err, "expected quoted non-special float error")
 }
 
+func TestUnmarshalRejectsInvalidKnownFieldNumbers(t *testing.T) {
+	tests := [][]byte{
+		[]byte(`{"int32Field":01}`),
+		[]byte(`{"uint32Field":+1}`),
+		[]byte(`{"doubleField":1e}`),
+		[]byte(`{"floatField":--1}`),
+	}
+
+	for _, data := range tests {
+		var out testpb.ComplexMessage
+		err := Unmarshal(data, &out)
+		require.Error(t, err, "expected invalid number error for payload %s", data)
+	}
+}
+
+func TestNilMessageInputsReturnErrors(t *testing.T) {
+	var msg *testpb.ComplexMessage
+
+	_, err := Marshal(msg)
+	require.Error(t, err)
+
+	err = Unmarshal([]byte(`{}`), msg)
+	require.Error(t, err)
+
+	assert.Nil(t, GetTable(msg))
+}
+
 func TestUnmarshalRejectsDuplicateFieldNames(t *testing.T) {
 	userPayloads := [][]byte{
 		[]byte(`{"id":"first","id":"second"}`),
@@ -232,4 +259,27 @@ func TestCustomAllocator(t *testing.T) {
 	require.Len(t, out.RepeatedMessage, 2)
 	assert.Equal(t, "item1", out.RepeatedMessage[0].Name)
 	assert.Equal(t, "item2", out.RepeatedMessage[1].Name)
+}
+
+func TestBumpAllocatorResetReturnsZeroedMemory(t *testing.T) {
+	alloc := NewBumpAllocator()
+
+	var first testpb.ComplexMessage
+	err := UnmarshalOptions{Allocator: alloc}.Unmarshal([]byte(`{
+		"childField": {"name": "stale", "value": 99},
+		"repeatedMessage": [{"name": "old", "value": 1}]
+	}`), &first)
+	require.NoError(t, err)
+
+	alloc.Reset()
+	var second testpb.ComplexMessage
+	err = UnmarshalOptions{Allocator: alloc}.Unmarshal([]byte(`{
+		"childField": {"name": "fresh"}
+	}`), &second)
+	require.NoError(t, err)
+
+	require.NotNil(t, second.ChildField)
+	assert.Equal(t, "fresh", second.ChildField.Name)
+	assert.Equal(t, int32(0), second.ChildField.Value)
+	assert.Nil(t, second.RepeatedMessage)
 }

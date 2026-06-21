@@ -16,6 +16,7 @@ package protojsonx
 
 import (
 	"encoding/base64"
+	"errors"
 	"math"
 	"reflect"
 	"sort"
@@ -24,6 +25,7 @@ import (
 	"time"
 	"unsafe"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -136,6 +138,17 @@ func Marshal(msg proto.Message) ([]byte, error) {
 }
 
 func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
+	val := reflect.ValueOf(msg)
+	if !val.IsValid() || val.Kind() != reflect.Pointer || val.IsNil() {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
+	if isProtojsonCustomWellKnown(msg.ProtoReflect().Descriptor().FullName()) {
+		return protojson.MarshalOptions{
+			EmitUnpopulated: o.EmitUnpopulated,
+			UseProtoNames:   o.UseProtoNames,
+		}.Marshal(msg)
+	}
+
 	table, err := getTable(msg)
 	if err != nil {
 		return nil, err
@@ -144,7 +157,7 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 	eb := encBufPool.Get().(*encBuffer)
 	eb.buf = eb.buf[:0]
 
-	ptr := reflect.ValueOf(msg).UnsafePointer()
+	ptr := val.UnsafePointer()
 
 	err = table.marshalTo(ptr, eb, o)
 	if err != nil {
@@ -470,6 +483,34 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, `":`...)
 
 				b.writeDurationString(secs, nanos)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeProtojsonWellKnown:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				msg := reflect.NewAt(inst.elemType, subMsgPtr).Interface().(proto.Message)
+				data, err := protojson.MarshalOptions{
+					EmitUnpopulated: opts.EmitUnpopulated,
+					UseProtoNames:   opts.UseProtoNames,
+				}.Marshal(msg)
+				if err != nil {
+					return err
+				}
+				b.buf = append(b.buf, data...)
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
 				if wroteAny {

@@ -175,10 +175,12 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		xData, err := Marshal(msg)
 		require.NoError(t, err, "Marshal failed")
 
-		assert.Contains(t, string(xData), `"value":"test"`, "expected JSON to contain value:test")
+		stdData, err := protojson.Marshal(msg)
+		require.NoError(t, err)
+		assert.Equal(t, stdData, xData, "StringValue json mismatch")
 
 		var out testpb.SpecMessage
-		err = Unmarshal(xData, &out)
+		err = Unmarshal(stdData, &out)
 		require.NoError(t, err, "Unmarshal failed")
 
 		require.NotNil(t, out.StringValueField)
@@ -192,8 +194,12 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		xData, err := Marshal(msg)
 		require.NoError(t, err)
 
+		stdData, err := protojson.Marshal(msg)
+		require.NoError(t, err)
+		assert.Equal(t, stdData, xData, "DoubleValue json mismatch")
+
 		var out testpb.SpecMessage
-		err = Unmarshal(xData, &out)
+		err = Unmarshal(stdData, &out)
 		require.NoError(t, err)
 
 		require.NotNil(t, out.DoubleValueField)
@@ -207,8 +213,12 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		xData, err := Marshal(msg)
 		require.NoError(t, err)
 
+		stdData, err := protojson.Marshal(msg)
+		require.NoError(t, err)
+		assert.Equal(t, stdData, xData, "BoolValue json mismatch")
+
 		var out testpb.SpecMessage
-		err = Unmarshal(xData, &out)
+		err = Unmarshal(stdData, &out)
 		require.NoError(t, err)
 
 		require.NotNil(t, out.BoolValueField)
@@ -225,8 +235,12 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		xData, err := Marshal(msg)
 		require.NoError(t, err)
 
+		stdData, err := protojson.Marshal(msg)
+		require.NoError(t, err)
+		assert.Equal(t, stdData, xData, "FieldMask json mismatch")
+
 		var out testpb.SpecMessage
-		err = Unmarshal(xData, &out)
+		err = Unmarshal(stdData, &out)
 		require.NoError(t, err)
 
 		require.NotNil(t, out.FieldMaskField)
@@ -244,8 +258,12 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		xData, err := Marshal(msg)
 		require.NoError(t, err)
 
+		stdData, err := protojson.Marshal(msg)
+		require.NoError(t, err)
+		assert.Equal(t, stdData, xData, "Any json mismatch")
+
 		var out testpb.SpecMessage
-		err = Unmarshal(xData, &out)
+		err = Unmarshal(stdData, &out)
 		require.NoError(t, err)
 
 		require.NotNil(t, out.AnyField)
@@ -286,4 +304,20 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		_, err = Marshal(msg)
 		require.Error(t, err, "expected error compiling ListValue field")
 	})
+}
+
+func TestProtojsonRootWellKnownWrapper(t *testing.T) {
+	msg := wrapperspb.String("hello")
+
+	xData, err := Marshal(msg)
+	require.NoError(t, err)
+
+	stdData, err := protojson.Marshal(msg)
+	require.NoError(t, err)
+	assert.Equal(t, stdData, xData)
+
+	var out wrapperspb.StringValue
+	err = Unmarshal(stdData, &out)
+	require.NoError(t, err)
+	assert.Equal(t, "hello", out.Value)
 }

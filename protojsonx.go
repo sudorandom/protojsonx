@@ -42,6 +42,7 @@ const (
 	TypeMessage
 	TypeTimestamp
 	TypeDuration
+	TypeProtojsonWellKnown
 	TypeRepeatedString
 	TypeRepeatedMessage
 	TypeMapStringString
@@ -100,6 +101,25 @@ func (table *MessageTable) readyNow() bool {
 var tableCache = make(map[reflect.Type]*MessageTable)
 var cacheMutex sync.RWMutex
 
+func isProtojsonCustomWellKnown(fullName protoreflect.FullName) bool {
+	switch fullName {
+	case "google.protobuf.Any",
+		"google.protobuf.FieldMask",
+		"google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int64Value",
+		"google.protobuf.UInt64Value",
+		"google.protobuf.Int32Value",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.BoolValue",
+		"google.protobuf.StringValue",
+		"google.protobuf.BytesValue":
+		return true
+	default:
+		return false
+	}
+}
+
 func GetTable(msg proto.Message) *MessageTable {
 	table, _ := getTable(msg)
 	return table
@@ -110,6 +130,10 @@ func GetTable(msg proto.Message) *MessageTable {
 func getTable(msg proto.Message) (*MessageTable, error) {
 	t := reflect.TypeOf(msg)
 	if t == nil {
+		return nil, fmt.Errorf("protojsonx: nil message")
+	}
+	v := reflect.ValueOf(msg)
+	if v.Kind() == reflect.Pointer && v.IsNil() {
 		return nil, fmt.Errorf("protojsonx: nil message")
 	}
 	if t.Kind() == reflect.Pointer {
@@ -288,6 +312,10 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 						inst.nanosOffset = fNano.Offset
 					}
 				default:
+					if isProtojsonCustomWellKnown(fullName) {
+						inst.ftype = TypeProtojsonWellKnown
+						break
+					}
 					inst.ftype = TypeMessage
 					inst.msgTable = compileTableForType(structType)
 					inst.msgNeedsWait = !inst.msgTable.readyNow()

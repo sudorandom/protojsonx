@@ -52,7 +52,9 @@ func (b *BumpAllocator) New(t reflect.Type) reflect.Value {
 		b.off = 0
 	}
 
-	ptr := unsafe.Pointer(&b.chunks[b.curr][b.off])
+	start := b.off
 	b.off += size
+	clear(b.chunks[b.curr][start:b.off])
+	ptr := unsafe.Pointer(&b.chunks[b.curr][start])
 	return reflect.NewAt(t, ptr)
 }

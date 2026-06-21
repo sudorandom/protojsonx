@@ -2,6 +2,7 @@ package protojsonxgrpc_test
 
 import (
 	"fmt"
+	"testing"
 
 	"github.com/sudorandom/protojsonx"
 	"github.com/sudorandom/protojsonx/protojsonxgrpc"
@@ -28,4 +29,16 @@ func ExampleCodec() {
 
 	fmt.Println(codec.Name(), out.Value)
 	// Output: json hello
+}
+
+func TestCodecTypedNilMessageReturnsError(t *testing.T) {
+	codec := protojsonxgrpc.Codec{}
+	var msg *wrapperspb.StringValue
+
+	if _, err := codec.Marshal(msg); err == nil {
+		t.Fatal("expected typed nil marshal error")
+	}
+	if err := codec.Unmarshal([]byte(`{}`), msg); err == nil {
+		t.Fatal("expected typed nil unmarshal error")
+	}
 }
