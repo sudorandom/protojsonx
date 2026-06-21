@@ -2,10 +2,15 @@ syntax = "proto3";
 
 package testshapes;
 
-option go_package = "github.com/sudorandom/protojsonx/internal/testpb";
-
-import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+
+option go_package = "github.com/sudorandom/protojsonx/internal/testpb";
 
 enum TestEnum {
   TEST_ENUM_UNSPECIFIED = 0;
@@ -50,4 +55,31 @@ message ComplexMessage {
 message ChildMessage {
   string name = 1;
   int32 value = 2;
+}
+
+message SpecMessage {
+  google.protobuf.Any any_field = 1;
+  google.protobuf.Empty empty_field = 2;
+  google.protobuf.FieldMask field_mask_field = 3;
+  google.protobuf.DoubleValue double_value_field = 7;
+  google.protobuf.FloatValue float_value_field = 8;
+  google.protobuf.Int64Value int64_value_field = 9;
+  google.protobuf.UInt64Value uint64_value_field = 10;
+  google.protobuf.Int32Value int32_value_field = 11;
+  google.protobuf.UInt32Value uint32_value_field = 12;
+  google.protobuf.BoolValue bool_value_field = 13;
+  google.protobuf.StringValue string_value_field = 14;
+  google.protobuf.BytesValue bytes_value_field = 15;
+}
+
+message StructMessage {
+  google.protobuf.Struct struct_field = 1;
+}
+
+message ValueMessage {
+  google.protobuf.Value value_field = 1;
+}
+
+message ListValueMessage {
+  google.protobuf.ListValue list_value_field = 1;
 }
