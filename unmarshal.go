@@ -570,6 +570,22 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 			*(*[]byte)(fieldPtr) = nil
 		case TypeRepeatedString:
 			*(*[]string)(fieldPtr) = nil
+		case TypeRepeatedInt32, TypeRepeatedEnum:
+			*(*[]int32)(fieldPtr) = nil
+		case TypeRepeatedInt64:
+			*(*[]int64)(fieldPtr) = nil
+		case TypeRepeatedUint32:
+			*(*[]uint32)(fieldPtr) = nil
+		case TypeRepeatedUint64:
+			*(*[]uint64)(fieldPtr) = nil
+		case TypeRepeatedFloat32:
+			*(*[]float32)(fieldPtr) = nil
+		case TypeRepeatedFloat64:
+			*(*[]float64)(fieldPtr) = nil
+		case TypeRepeatedBool:
+			*(*[]bool)(fieldPtr) = nil
+		case TypeRepeatedBytes:
+			*(*[][]byte)(fieldPtr) = nil
 		case TypeMapStringString:
 			*(*map[string]string)(fieldPtr) = nil
 		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
@@ -614,6 +630,22 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 		*(*[]byte)(fieldPtr) = nil
 	case TypeRepeatedString:
 		*(*[]string)(fieldPtr) = nil
+	case TypeRepeatedInt32, TypeRepeatedEnum:
+		*(*[]int32)(fieldPtr) = nil
+	case TypeRepeatedInt64:
+		*(*[]int64)(fieldPtr) = nil
+	case TypeRepeatedUint32:
+		*(*[]uint32)(fieldPtr) = nil
+	case TypeRepeatedUint64:
+		*(*[]uint64)(fieldPtr) = nil
+	case TypeRepeatedFloat32:
+		*(*[]float32)(fieldPtr) = nil
+	case TypeRepeatedFloat64:
+		*(*[]float64)(fieldPtr) = nil
+	case TypeRepeatedBool:
+		*(*[]bool)(fieldPtr) = nil
+	case TypeRepeatedBytes:
+		*(*[][]byte)(fieldPtr) = nil
 	case TypeMapStringString:
 		*(*map[string]string)(fieldPtr) = nil
 	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
@@ -667,6 +699,38 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 			}
 		case TypeRepeatedString:
 			if len(*(*[]string)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedInt32, TypeRepeatedEnum:
+			if len(*(*[]int32)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedInt64:
+			if len(*(*[]int64)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedUint32:
+			if len(*(*[]uint32)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedUint64:
+			if len(*(*[]uint64)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedFloat32:
+			if len(*(*[]float32)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedFloat64:
+			if len(*(*[]float64)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedBool:
+			if len(*(*[]bool)(fieldPtr)) != 0 {
+				return false
+			}
+		case TypeRepeatedBytes:
+			if len(*(*[][]byte)(fieldPtr)) != 0 {
 				return false
 			}
 		case TypeMapStringString:
@@ -955,6 +1019,124 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			} else {
 				*slicePtr = append(*slicePtr, string(val))
 			}
+			return nil
+		})
+	case TypeRepeatedInt32:
+		slicePtr := (*[]int32)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readInt32()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedInt64:
+		slicePtr := (*[]int64)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readInt64()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedUint32:
+		slicePtr := (*[]uint32)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readUint32()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedUint64:
+		slicePtr := (*[]uint64)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readUint64()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedFloat32:
+		slicePtr := (*[]float32)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readFloat32()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedFloat64:
+		slicePtr := (*[]float64)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readFloat64()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedBool:
+		slicePtr := (*[]bool)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readBool()
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, val)
+			return nil
+		})
+	case TypeRepeatedBytes:
+		slicePtr := (*[][]byte)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			val, err := d.readStringBytes()
+			if err != nil {
+				return err
+			}
+			decoded, err := base64.StdEncoding.DecodeString(unsafeString(val))
+			if err != nil {
+				return err
+			}
+			*slicePtr = append(*slicePtr, decoded)
+			return nil
+		})
+	case TypeRepeatedEnum:
+		slicePtr := (*[]int32)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
+		return d.parseArray(func() error {
+			d.skipWhitespace()
+			var ev int32
+			if d.off < len(d.data) && d.data[d.off] == '"' {
+				s, err := d.readStringBytes()
+				if err != nil {
+					return err
+				}
+				var ok bool
+				ev, ok = inst.enumValueMap[unsafeString(s)]
+				if !ok {
+					return errors.New("unknown enum value: " + unsafeString(s))
+				}
+			} else {
+				val, err := d.readInt32()
+				if err != nil {
+					return err
+				}
+				ev = val
+			}
+			*slicePtr = append(*slicePtr, ev)
 			return nil
 		})
 	case TypeMapStringString:

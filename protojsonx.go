@@ -46,6 +46,15 @@ const (
 	TypeRepeatedString
 	TypeRepeatedMessage
 	TypeMapStringString
+	TypeRepeatedInt32
+	TypeRepeatedInt64
+	TypeRepeatedUint32
+	TypeRepeatedUint64
+	TypeRepeatedFloat32
+	TypeRepeatedFloat64
+	TypeRepeatedBool
+	TypeRepeatedBytes
+	TypeRepeatedEnum
 )
 
 type fieldInstruction struct {
@@ -262,8 +271,44 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					return nil, inst.msgTable.err
 				}
 			} else {
-				table.useProtojson = true
-				return table, nil
+				if sf.Type.Kind() != reflect.Slice {
+					table.useProtojson = true
+					return table, nil
+				}
+				switch fd.Kind() {
+				case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+					inst.ftype = TypeRepeatedInt32
+				case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+					inst.ftype = TypeRepeatedInt64
+				case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+					inst.ftype = TypeRepeatedUint32
+				case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+					inst.ftype = TypeRepeatedUint64
+				case protoreflect.FloatKind:
+					inst.ftype = TypeRepeatedFloat32
+				case protoreflect.DoubleKind:
+					inst.ftype = TypeRepeatedFloat64
+				case protoreflect.BoolKind:
+					inst.ftype = TypeRepeatedBool
+				case protoreflect.BytesKind:
+					inst.ftype = TypeRepeatedBytes
+				case protoreflect.EnumKind:
+					inst.ftype = TypeRepeatedEnum
+					inst.enumNameMap = make(map[int32]string)
+					inst.enumValueMap = make(map[string]int32)
+					enumDesc := fd.Enum()
+					vals := enumDesc.Values()
+					for j := 0; j < vals.Len(); j++ {
+						v := vals.Get(j)
+						name := string(v.Name())
+						num := int32(v.Number())
+						inst.enumNameMap[num] = name
+						inst.enumValueMap[name] = num
+					}
+				default:
+					table.useProtojson = true
+					return table, nil
+				}
 			}
 		} else {
 			switch fd.Kind() {

@@ -84,6 +84,18 @@ message ListValueMessage {
   google.protobuf.ListValue list_value_field = 1;
 }
 
+message RepeatedScalarsMessage {
+  repeated int32 repeated_int32 = 1;
+  repeated int64 repeated_int64 = 2;
+  repeated uint32 repeated_uint32 = 3;
+  repeated uint64 repeated_uint64 = 4;
+  repeated float repeated_float = 5;
+  repeated double repeated_double = 6;
+  repeated bool repeated_bool = 7;
+  repeated bytes repeated_bytes = 8;
+  repeated TestEnum repeated_enum = 9;
+}
+
 message CompatibilityMessage {
   oneof choice {
     string name_choice = 1;

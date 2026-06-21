@@ -369,7 +369,6 @@ func BenchmarkComplexProtojsonx_ZeroCopy_Allocator_Unmarshal(b *testing.B) {
 	}
 }
 
-
 func BenchmarkComplexProtoBinary_Marshal(b *testing.B) {
 	p := createBenchComplexMessage()
 	b.ResetTimer()

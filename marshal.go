@@ -405,6 +405,173 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.writeByte(']')
 				wroteAny = true
 			}
+		case TypeRepeatedInt32:
+			val := *(*[]int32)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeInt64(int64(v))
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedInt64:
+			val := *(*[]int64)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeInt64String(v)
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedUint32:
+			val := *(*[]uint32)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeUint64(uint64(v))
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedUint64:
+			val := *(*[]uint64)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeUint64String(v)
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedFloat32:
+			val := *(*[]float32)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeFloat64(float64(v), 32)
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedFloat64:
+			val := *(*[]float64)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeFloat64(v, 64)
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedBool:
+			val := *(*[]bool)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeBool(v)
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedBytes:
+			val := *(*[][]byte)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					b.writeEscapedString(base64.StdEncoding.EncodeToString(v))
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
+		case TypeRepeatedEnum:
+			val := *(*[]int32)(fieldPtr)
+			if len(val) > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":[`...)
+				for j, v := range val {
+					if j > 0 {
+						b.writeByte(',')
+					}
+					enumStr, ok := inst.enumNameMap[v]
+					if ok {
+						b.writeEscapedString(enumStr)
+					} else {
+						b.writeInt64(int64(v))
+					}
+				}
+				b.writeByte(']')
+				wroteAny = true
+			}
 		case TypeMapStringString:
 			val := *(*map[string]string)(fieldPtr)
 			if len(val) > 0 || opts.EmitUnpopulated {

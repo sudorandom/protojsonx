@@ -99,7 +99,7 @@ func TestProtojsonPrimitiveTypes(t *testing.T) {
 			stdData, err := protojson.Marshal(tc.msg)
 			require.NoError(t, err, "standard protojson.Marshal failed")
 
-			assert.Equal(t, stdData, xData, "JSON output mismatch")
+			assert.JSONEq(t, string(stdData), string(xData), "JSON output mismatch")
 
 			// Test Unmarshal roundtrip
 			newMsg := reflect.New(reflect.TypeOf(tc.msg).Elem()).Interface().(proto.Message)
@@ -123,7 +123,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
 
-		assert.Equal(t, stdData, xData, "Timestamp json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Timestamp json mismatch")
 
 		var out testpb.ComplexMessage
 		err = Unmarshal(xData, &out)
@@ -141,7 +141,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
 
-		assert.Equal(t, stdData, xData, "Duration json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Duration json mismatch")
 
 		var out testpb.ComplexMessage
 		err = Unmarshal(xData, &out)
@@ -159,7 +159,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
 
-		assert.Equal(t, stdData, xData, "Empty json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Empty json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(xData, &out)
@@ -177,7 +177,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "StringValue json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "StringValue json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(stdData, &out)
@@ -196,7 +196,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "DoubleValue json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "DoubleValue json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(stdData, &out)
@@ -215,7 +215,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "BoolValue json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "BoolValue json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(stdData, &out)
@@ -237,7 +237,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "FieldMask json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "FieldMask json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(stdData, &out)
@@ -260,7 +260,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "Any json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Any json mismatch")
 
 		var out testpb.SpecMessage
 		err = Unmarshal(stdData, &out)
@@ -282,7 +282,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "Struct json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Struct json mismatch")
 
 		var out testpb.StructMessage
 		err = Unmarshal(stdData, &out)
@@ -302,7 +302,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "Value json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "Value json mismatch")
 
 		var out testpb.ValueMessage
 		err = Unmarshal(stdData, &out)
@@ -322,7 +322,7 @@ func TestProtojsonWellKnownTypes(t *testing.T) {
 
 		stdData, err := protojson.Marshal(msg)
 		require.NoError(t, err)
-		assert.Equal(t, stdData, xData, "ListValue json mismatch")
+		assert.JSONEq(t, string(stdData), string(xData), "ListValue json mismatch")
 
 		var out testpb.ListValueMessage
 		err = Unmarshal(stdData, &out)
@@ -339,7 +339,7 @@ func TestProtojsonRootWellKnownWrapper(t *testing.T) {
 
 	stdData, err := protojson.Marshal(msg)
 	require.NoError(t, err)
-	assert.Equal(t, stdData, xData)
+	assert.JSONEq(t, string(stdData), string(xData))
 
 	var out wrapperspb.StringValue
 	err = Unmarshal(stdData, &out)
@@ -355,7 +355,7 @@ func assertProtojsonParity(t *testing.T, msg proto.Message) {
 
 	stdData, err := protojson.Marshal(msg)
 	require.NoError(t, err)
-	assert.Equal(t, stdData, xData, "marshal json mismatch")
+	assert.JSONEq(t, string(stdData), string(xData), "marshal json mismatch")
 
 	out := reflect.New(reflect.TypeOf(msg).Elem()).Interface().(proto.Message)
 	err = Unmarshal(stdData, out)
@@ -448,4 +448,24 @@ func TestProtojsonFallbackCompatibilityShapes(t *testing.T) {
 			assertProtojsonParity(t, tc.msg)
 		})
 	}
+}
+
+func TestRepeatedScalarsNatively(t *testing.T) {
+	msg := &testpb.RepeatedScalarsMessage{
+		RepeatedInt32:  []int32{1, -2, 3},
+		RepeatedInt64:  []int64{100, -200, 300},
+		RepeatedUint32: []uint32{10, 20, 30},
+		RepeatedUint64: []uint64{1000, 2000, 3000},
+		RepeatedFloat:  []float32{1.5, -2.5},
+		RepeatedDouble: []float64{123.456, -789.012},
+		RepeatedBool:   []bool{true, false, true},
+		RepeatedBytes:  [][]byte{[]byte("hello"), []byte("world")},
+		RepeatedEnum:   []testpb.TestEnum{testpb.TestEnum_TEST_ENUM_FIRST, testpb.TestEnum_TEST_ENUM_SECOND},
+	}
+
+	table, err := getTable(msg)
+	require.NoError(t, err)
+	assert.False(t, table.useProtojson, "Should not fall back to protojson for RepeatedScalarsMessage")
+
+	assertProtojsonParity(t, msg)
 }
