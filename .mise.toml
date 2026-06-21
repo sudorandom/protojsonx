@@ -1,0 +1,6 @@
+[tools]
+go = "1.26.4"
+protobuf = "latest"
+protoc-gen-go = "latest"
+golangci-lint = "latest"
+just = "latest"
