@@ -266,7 +266,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 			case protoreflect.MessageKind:
 				fullName := fd.Message().FullName()
 				structType := sf.Type
-				if structType.Kind() == reflect.Ptr {
+				if structType.Kind() == reflect.Pointer {
 					structType = structType.Elem()
 				}
 				inst.elemType = structType

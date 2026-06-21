@@ -472,7 +472,7 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 	}
 
 	val := reflect.ValueOf(msg)
-	if val.Kind() != reflect.Ptr {
+	if val.Kind() != reflect.Pointer {
 		return errors.New("unmarshal target must be pointer")
 	}
 	ptr := val.UnsafePointer()
