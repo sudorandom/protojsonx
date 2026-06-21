@@ -71,12 +71,13 @@ type fieldInstruction struct {
 }
 
 type MessageTable struct {
-	goType   reflect.Type
-	fields   []fieldInstruction
-	fieldMap map[string]*fieldInstruction
-	ready    chan struct{}
-	done     atomic.Bool
-	err      error
+	goType       reflect.Type
+	fields       []fieldInstruction
+	fieldMap     map[string]*fieldInstruction
+	useProtojson bool
+	ready        chan struct{}
+	done         atomic.Bool
+	err          error
 }
 
 func (table *MessageTable) wait() error {
@@ -104,7 +105,13 @@ var cacheMutex sync.RWMutex
 func isProtojsonCustomWellKnown(fullName protoreflect.FullName) bool {
 	switch fullName {
 	case "google.protobuf.Any",
+		"google.protobuf.Empty",
+		"google.protobuf.Struct",
+		"google.protobuf.Value",
+		"google.protobuf.ListValue",
 		"google.protobuf.FieldMask",
+		"google.protobuf.Timestamp",
+		"google.protobuf.Duration",
 		"google.protobuf.DoubleValue",
 		"google.protobuf.FloatValue",
 		"google.protobuf.Int64Value",
@@ -168,6 +175,7 @@ func getTable(msg proto.Message) (*MessageTable, error) {
 	if fullTable != nil {
 		table.fields = fullTable.fields
 		table.fieldMap = fullTable.fieldMap
+		table.useProtojson = fullTable.useProtojson
 	}
 	table.err = err
 	table.done.Store(true)
@@ -178,8 +186,8 @@ func getTable(msg proto.Message) (*MessageTable, error) {
 }
 
 // compileTable translates protobuf descriptors into fieldInstructions for the
-// generated Go struct. Unsupported field shapes fail compilation explicitly so
-// callers do not get lossy JSON.
+// generated Go struct. Shapes not covered by the optimized table compiler fall
+// back to standard protojson for full compatibility.
 func compileTable(msg proto.Message) (*MessageTable, error) {
 	pref := msg.ProtoReflect()
 	desc := pref.Descriptor()
@@ -217,7 +225,8 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		fd := fieldsDesc.Get(i)
 		sf, ok := fieldNumToStructField[fd.Number()]
 		if !ok {
-			return nil, fmt.Errorf("protojsonx: unsupported field %s: no compatible generated struct field", fd.FullName())
+			table.useProtojson = true
+			return table, nil
 		}
 
 		inst := fieldInstruction{
@@ -233,7 +242,8 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 			if keyKind == protoreflect.StringKind && valKind == protoreflect.StringKind {
 				inst.ftype = TypeMapStringString
 			} else {
-				return nil, fmt.Errorf("protojsonx: unsupported map field %s with key kind %s and value kind %s", fd.FullName(), keyKind, valKind)
+				table.useProtojson = true
+				return table, nil
 			}
 		} else if fd.IsList() {
 			if fd.Kind() == protoreflect.StringKind {
@@ -252,29 +262,70 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					return nil, inst.msgTable.err
 				}
 			} else {
-				return nil, fmt.Errorf("protojsonx: unsupported repeated field %s with kind %s", fd.FullName(), fd.Kind())
+				table.useProtojson = true
+				return table, nil
 			}
 		} else {
 			switch fd.Kind() {
 			case protoreflect.StringKind:
+				if sf.Type.Kind() != reflect.String {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeString
 			case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+				if sf.Type.Kind() != reflect.Int32 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeInt32
 			case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+				if sf.Type.Kind() != reflect.Int64 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeInt64
 			case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+				if sf.Type.Kind() != reflect.Uint32 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeUint32
 			case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+				if sf.Type.Kind() != reflect.Uint64 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeUint64
 			case protoreflect.FloatKind:
+				if sf.Type.Kind() != reflect.Float32 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeFloat32
 			case protoreflect.DoubleKind:
+				if sf.Type.Kind() != reflect.Float64 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeFloat64
 			case protoreflect.BoolKind:
+				if sf.Type.Kind() != reflect.Bool {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeBool
 			case protoreflect.BytesKind:
+				if sf.Type.Kind() != reflect.Slice {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeBytes
 			case protoreflect.EnumKind:
+				if sf.Type.Kind() != reflect.Int32 {
+					table.useProtojson = true
+					return table, nil
+				}
 				inst.ftype = TypeEnum
 				inst.enumNameMap = make(map[int32]string)
 				inst.enumValueMap = make(map[string]int32)
@@ -324,7 +375,8 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					}
 				}
 			default:
-				return nil, fmt.Errorf("protojsonx: unsupported field %s with kind %s", fd.FullName(), fd.Kind())
+				table.useProtojson = true
+				return table, nil
 			}
 		}
 
@@ -363,6 +415,7 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 	cacheMutex.Lock()
 	if fullTable != nil {
 		table.fields = fullTable.fields
+		table.useProtojson = fullTable.useProtojson
 		for i := range table.fields {
 			inst := &table.fields[i]
 			table.fieldMap[inst.jsonName] = inst

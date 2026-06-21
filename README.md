@@ -8,6 +8,11 @@
 
 It uses a dynamic table-driven parser and unsafe pointer offset arithmetic to avoid the runtime protobuf reflection overhead in hot marshal/unmarshal paths.
 
+> [!WARNING]
+> `protojsonx` is a super experimental project and is not intended for production use.
+
+Requires Go 1.24 or newer.
+
 ## ⚡ Performance
 
 Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `protojson`, standard binary protobuf wire format (`proto`), and `protojsonx`.
@@ -37,11 +42,35 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 - **Unmarshal is about 3.4-4.2x faster than `protojson`**, depending on message shape and configured options.
 - **Marshal is competitive with binary protobuf**, and is faster than binary marshal for both benchmark shapes.
 - **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **28 allocs/op** (Standard), **17 allocs/op** (ZeroCopy), **23 allocs/op** (Allocator), or **12 allocs/op** (ZeroCopy + Allocator).
+- **No extra generated code or protoc plugin required**: `protojsonx` works with ordinary Go protobuf generated types.
+
+The binary marshal comparison is message-shape dependent. In these benchmarks, `protojsonx` can beat binary protobuf marshal because the JSON encoder writes directly into a pooled byte buffer from precomputed field offsets, while binary protobuf still pays its own per-field encoding and allocation costs for these generated message shapes.
+
+## How It Works
+
+`protojsonx` keeps the same generated message structs you already have, but replaces protobuf reflection in the hot path with a runtime-compiled table.
+
+- **Runtime table compilation**: the first use of a message type reads its protobuf descriptor and generated Go struct tags, then builds a `MessageTable` containing field offsets, JSON/proto names, field kinds, enum maps, and nested message tables.
+- **Unsafe field access**: marshal and unmarshal read/write generated struct fields with precomputed `unsafe` offsets instead of reflective field lookup.
+- **Specialized JSON parser**: unmarshal uses a small parser tailored to the supported protojson field shapes. It validates skipped unknown JSON values, rejects duplicate known fields, handles `null` as the protobuf default, and parses known numeric tokens without routing every field through `encoding/json`.
+- **Low-allocation marshal path**: JSON is appended directly into a pooled byte buffer, with deterministic map-key sorting and one owned copy returned to the caller.
+- **Optional zero-copy strings**: `UnmarshalOptions{ZeroCopy: true}` can alias unescaped input string bytes, avoiding string allocation when the input buffer lifetime is request-scoped.
+- **Optional bump allocator**: nested messages can be allocated from a reusable monotonic allocator to reduce heap allocation and GC pressure in high-throughput decode paths.
+- **Full protojson compatibility**: schemas outside the optimized fast path fall back to the standard `protojson` implementation instead of producing lossy JSON.
 
 ## Install
 
 ```sh
 go get github.com/sudorandom/protojsonx
+```
+
+## Quick Start
+
+```go
+data, err := protojsonx.Marshal(msg)
+
+var out mypb.MyMessage
+err = protojsonx.Unmarshal(data, &out)
 ```
 
 Optional integration modules:
@@ -50,6 +79,29 @@ Optional integration modules:
 go get github.com/sudorandom/protojsonx/protojsonxconnect
 go get github.com/sudorandom/protojsonx/protojsonxgrpc
 ```
+
+## Compatibility
+
+`protojsonx` supports full protojson compatibility. Common request/response message shapes use the optimized runtime table path; schemas outside that fast path automatically fall back to the standard `protojson` implementation.
+
+Optimized fast-path field shapes:
+
+- Scalar fields: `string`, numeric types, `bool`, `bytes`, and enums.
+- Nested message fields.
+- Repeated `string` fields.
+- Repeated message fields.
+- `map<string, string>` fields.
+- Both JSON camelCase names and proto snake_case names during unmarshal.
+- Well-Known Types with protojson-compatible JSON: `google.protobuf.Timestamp`, `google.protobuf.Duration`, `google.protobuf.Any`, `google.protobuf.FieldMask`, and wrapper types such as `google.protobuf.StringValue`.
+- `google.protobuf.Empty`.
+
+Fallback-compatible field shapes:
+
+- `oneof` fields.
+- Repeated scalar fields other than `repeated string`.
+- Maps other than `map<string, string>`.
+- `google.protobuf.Struct`, `google.protobuf.Value`, and `google.protobuf.ListValue`.
+- Message schemas that rely on protojson special cases outside the Well-Known Types listed above.
 
 ## Configuration
 
@@ -206,6 +258,16 @@ Run benchmarks:
 just bench
 ```
 
+Build the protobuf conformance subprocess:
+
+```sh
+just conformance-binary
+```
+
+The generated binary at `.bin/protojsonx-conformance` speaks the official protobuf conformance runner protocol. Run it with the upstream `conformance_test_runner` from the Protocol Buffers source tree. The harness exercises JSON and protobuf input/output; text-format cases are reported as skipped because text format is outside `protojsonx`'s scope.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+Generated Protocol Buffers conformance files retain their upstream BSD-style notices; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

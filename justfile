@@ -15,6 +15,11 @@ lint:
 bench:
     go test -bench=. -benchmem
 
+# Build the subprocess used by the official protobuf conformance runner.
+conformance-binary:
+    mkdir -p ./.bin
+    GOCACHE="{{justfile_directory()}}/.bin/go-build-cache" go build -o ./.bin/protojsonx-conformance ./internal/protojsonx-conformance
+
 # Regenerate internal protobuf fixtures used by tests and benchmarks.
 generate-protos:
     buf generate --template buf.generate.yaml

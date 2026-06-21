@@ -153,6 +153,12 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if table.useProtojson {
+		return protojson.MarshalOptions{
+			EmitUnpopulated: o.EmitUnpopulated,
+			UseProtoNames:   o.UseProtoNames,
+		}.Marshal(msg)
+	}
 
 	eb := encBufPool.Get().(*encBuffer)
 	eb.buf = eb.buf[:0]
@@ -232,6 +238,19 @@ func (b *encBuffer) appendPaddedInt32(v int32, width int) {
 // marshalTo is the recursive encoder used for both root and nested messages.
 // ptr must point at the generated message struct matching table.goType.
 func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts MarshalOptions) error {
+	if table.useProtojson {
+		msg := reflect.NewAt(table.goType, ptr).Interface().(proto.Message)
+		data, err := protojson.MarshalOptions{
+			EmitUnpopulated: opts.EmitUnpopulated,
+			UseProtoNames:   opts.UseProtoNames,
+		}.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		b.buf = append(b.buf, data...)
+		return nil
+	}
+
 	b.writeByte('{')
 	wroteAny := false
 

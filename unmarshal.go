@@ -522,6 +522,11 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 	if err != nil {
 		return err
 	}
+	if table.useProtojson {
+		return protojson.UnmarshalOptions{
+			DiscardUnknown: o.DiscardUnknown,
+		}.Unmarshal(data, msg)
+	}
 	ptr := val.UnsafePointer()
 
 	d := &decBuffer{data: data}
@@ -759,6 +764,17 @@ func parseDuration(s string) (int64, int32, error) {
 }
 
 func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts UnmarshalOptions) error {
+	if table.useProtojson {
+		msg := reflect.NewAt(table.goType, ptr).Interface().(proto.Message)
+		start := d.off
+		if err := d.skipValue(); err != nil {
+			return err
+		}
+		return protojson.UnmarshalOptions{
+			DiscardUnknown: opts.DiscardUnknown,
+		}.Unmarshal(d.data[start:d.off], msg)
+	}
+
 	if len(table.fields) > 64 {
 		table.resetIfNeeded(ptr)
 		seen := make(map[*fieldInstruction]struct{}, len(table.fields))

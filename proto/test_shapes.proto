@@ -83,3 +83,23 @@ message ValueMessage {
 message ListValueMessage {
   google.protobuf.ListValue list_value_field = 1;
 }
+
+message CompatibilityMessage {
+  oneof choice {
+    string name_choice = 1;
+    int32 number_choice = 2;
+    ChildMessage child_choice = 3;
+  }
+
+  optional string optional_string = 4;
+  optional int32 optional_int32 = 5;
+
+  repeated int32 repeated_int32 = 6;
+  repeated bool repeated_bool = 7;
+  repeated bytes repeated_bytes = 8;
+  repeated TestEnum repeated_enum = 9;
+
+  map<string, int32> map_string_int32 = 10;
+  map<int32, string> map_int32_string = 11;
+  map<string, ChildMessage> map_string_message = 12;
+}
