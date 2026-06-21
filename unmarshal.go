@@ -653,7 +653,7 @@ func unsafeString(b []byte) string {
 	if len(b) == 0 {
 		return ""
 	}
-	return *(*string)(unsafe.Pointer(&b))
+	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
 // parseDuration parses protobuf Duration JSON using integer arithmetic so
