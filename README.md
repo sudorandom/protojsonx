@@ -12,12 +12,23 @@ It uses a dynamic table-driven parser and unsafe pointer offset arithmetic to av
 
 Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `protojson`, standard binary protobuf wire format (`proto`), and `protojsonx`.
 
-| Case | protojson | protojsonx (Standard) | protojsonx (ZeroCopy) | protojsonx (ZeroCopy + Allocator) | proto binary |
-|---|---:|---:|---:|---:|---:|
-| Simple marshal | 5091 ns/op, 62 allocs | 842 ns/op, 1 alloc | n/a | n/a | 1365 ns/op, 13 allocs |
-| Simple unmarshal | 9209 ns/op, 129 allocs | 2495 ns/op, 35 allocs | 2257 ns/op, 13 allocs | 2137 ns/op, 10 allocs | 1908 ns/op, 45 allocs |
-| Complex marshal | 6763 ns/op, 69 allocs | 1160 ns/op, 3 allocs | n/a | n/a | 1257 ns/op, 9 allocs |
-| Complex unmarshal | 11870 ns/op, 153 allocs | 3303 ns/op, 28 allocs | 3190 ns/op, 17 allocs | 3020 ns/op, 12 allocs | 1671 ns/op, 33 allocs |
+### Marshalling (Serialization)
+
+| Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
+|---|---:|---:|---:|---:|
+| `protojson` (Standard Lib) | 5,091 ns | 62 | 6,763 ns | 69 |
+| `protojsonx` | **842 ns** | **1** | **1,160 ns** | **3** |
+| `proto` (Binary Wire) | 1,365 ns | 13 | 1,257 ns | 9 |
+
+### Unmarshalling (Deserialization)
+
+| Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
+|---|---:|---:|---:|---:|
+| `protojson` (Standard Lib) | 9,209 ns | 129 | 11,870 ns | 153 |
+| `protojsonx` (Standard) | 2,495 ns | 35 | 3,303 ns | 28 |
+| `protojsonx` (ZeroCopy) | 2,257 ns | 13 | 3,190 ns | 17 |
+| `protojsonx` (ZeroCopy + Allocator) | 2,137 ns | **10** | 3,020 ns | **12** |
+| `proto` (Binary Wire) | **1,908 ns** | 45 | **1,671 ns** | 33 |
 
 ### 🚀 Summary
 
