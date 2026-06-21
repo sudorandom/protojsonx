@@ -21,26 +21,26 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 4,090 ns | 63 | 5,675 ns | 69 |
-| `protojsonx` | **662 ns** | **1** | **917 ns** | **3** |
-| `proto` (Binary Wire) | 1,101 ns | 13 | 980 ns | 9 |
+| `protojson` (Standard Lib) | 4,718 ns | 63 | 6,147 ns | 69 |
+| `protojsonx` | **717 ns** | **1** | **1,003 ns** | **3** |
+| `proto` (Binary Wire) | 1,118 ns | 13 | 1,027 ns | 9 |
 
 ### Unmarshalling (Deserialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 7,203 ns | 129 | 9,339 ns | 153 |
-| `protojsonx` (Standard) | 1,989 ns | 35 | 2,641 ns | 28 |
-| `protojsonx` (ZeroCopy) | 1,804 ns | 13 | 2,722 ns | 17 |
-| `protojsonx` (Allocator) | 1,914 ns | 32 | 2,509 ns | 23 |
-| `protojsonx` (ZeroCopy + Allocator) | 1,731 ns | **10** | 2,427 ns | **12** |
-| `proto` (Binary Wire) | **1,516 ns** | 45 | **1,324 ns** | 33 |
+| `protojson` (Standard Lib) | 7,544 ns | 129 | 9,648 ns | 153 |
+| `protojsonx` (Standard) | 2,113 ns | 35 | 2,832 ns | 28 |
+| `protojsonx` (ZeroCopy) | 1,907 ns | 13 | 2,728 ns | 17 |
+| `protojsonx` (Allocator) | 2,017 ns | 32 | 2,654 ns | 23 |
+| `protojsonx` (ZeroCopy + Allocator) | 1,821 ns | **10** | 2,553 ns | **12** |
+| `proto` (Binary Wire) | **1,695 ns** | 45 | **1,466 ns** | 33 |
 
 ### 🚀 Summary
 
-- **Marshal is about 6x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 3.4-4.2x faster than `protojson`**, depending on message shape and configured options.
-- **Marshal is competitive with binary protobuf**, and is faster than binary marshal for both benchmark shapes.
+- **Marshal is about 6.1-6.6x faster than `protojson`** with dramatically fewer allocations.
+- **Unmarshal is about 3.4-4.1x faster than `protojson`**, depending on message shape and configured options.
+- **Marshal is competitive with binary protobuf**, faster in the simple benchmark and roughly tied in the complex benchmark.
 - **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **28 allocs/op** (Standard), **17 allocs/op** (ZeroCopy), **23 allocs/op** (Allocator), or **12 allocs/op** (ZeroCopy + Allocator).
 - **No extra generated code or protoc plugin required**: `protojsonx` works with ordinary Go protobuf generated types.
 
