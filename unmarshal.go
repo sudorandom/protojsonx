@@ -148,6 +148,9 @@ func unescapeString(s []byte) ([]byte, error) {
 // to encoding/json. This is colder than simple escapes but keeps semantics
 // correct for non-ASCII escaped input.
 func unescapeUnicodeString(s []byte) ([]byte, error) {
+	if err := validateSurrogates(s); err != nil {
+		return nil, err
+	}
 	quoted := make([]byte, 0, len(s)+2)
 	quoted = append(quoted, '"')
 	quoted = append(quoted, s...)
@@ -157,6 +160,67 @@ func unescapeUnicodeString(s []byte) ([]byte, error) {
 		return nil, err
 	}
 	return []byte(out), nil
+}
+
+func validateSurrogates(s []byte) error {
+	for i := 0; i < len(s); {
+		if s[i] == '\\' {
+			if i+1 >= len(s) {
+				return errors.New("incomplete escape")
+			}
+			if s[i+1] == 'u' {
+				if i+5 >= len(s) {
+					return errors.New("incomplete unicode escape")
+				}
+				r, err := parseHex4(s[i+2 : i+6])
+				if err != nil {
+					return err
+				}
+				if r >= 0xD800 && r <= 0xDBFF {
+					// High surrogate, must be followed by a low surrogate
+					i += 6
+					if i+5 >= len(s) || s[i] != '\\' || s[i+1] != 'u' {
+						return errors.New("unpaired high surrogate")
+					}
+					r2, err2 := parseHex4(s[i+2 : i+6])
+					if err2 != nil {
+						return err2
+					}
+					if r2 < 0xDC00 || r2 > 0xDFFF {
+						return errors.New("unpaired high surrogate")
+					}
+					i += 6
+				} else if r >= 0xDC00 && r <= 0xDFFF {
+					return errors.New("unpaired low surrogate")
+				} else {
+					i += 6
+				}
+			} else {
+				i += 2
+			}
+		} else {
+			i++
+		}
+	}
+	return nil
+}
+
+func parseHex4(b []byte) (rune, error) {
+	var r rune
+	for _, c := range b {
+		r <<= 4
+		switch {
+		case c >= '0' && c <= '9':
+			r |= rune(c - '0')
+		case c >= 'a' && c <= 'f':
+			r |= rune(c - 'a' + 10)
+		case c >= 'A' && c <= 'F':
+			r |= rune(c - 'A' + 10)
+		default:
+			return 0, errors.New("invalid hex character")
+		}
+	}
+	return r, nil
 }
 
 func parseStringOrNumberToInt64(s string) (int64, error) {
@@ -1038,6 +1102,7 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 }
 
 var errUnknownField = errors.New("unknown field")
+var errUnknownEnum = errors.New("unknown enum value name")
 
 // unmarshalField is the wide-message fallback. It uses a map for duplicate
 // detection because the fast 64-bit seen mask cannot represent every field.
@@ -1100,7 +1165,25 @@ func (table *MessageTable) unmarshalFieldInstruction(key []byte, opts UnmarshalO
 func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer, opts UnmarshalOptions, inst *fieldInstruction) error {
 	fieldPtr := unsafe.Add(ptr, inst.offset)
 	if d.readNull() {
-		if inst.ftype == TypeOneofField || inst.ftype == TypeMapField {
+		if inst.ftype == TypeOneofField {
+			if inst.fd.Kind() == protoreflect.EnumKind && inst.fd.Enum().FullName() == "google.protobuf.NullValue" {
+				pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+				pref.Set(inst.fd, protoreflect.ValueOfEnum(0))
+				return nil
+			}
+			if inst.fd.Kind() == protoreflect.MessageKind && inst.fd.Message().FullName() == "google.protobuf.Value" {
+				pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+				val := pref.NewField(inst.fd).Message()
+				fd := val.Descriptor().Fields().ByNumber(1)
+				val.Set(fd, protoreflect.ValueOfEnum(0))
+				pref.Set(inst.fd, protoreflect.ValueOfMessage(val))
+				return nil
+			}
+			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			pref.Clear(inst.fd)
+			return nil
+		}
+		if inst.ftype == TypeMapField {
 			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
 			pref.Clear(inst.fd)
 			return nil
@@ -1121,7 +1204,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		return nil
 	}
 
-	var targetPtr unsafe.Pointer = fieldPtr
+	targetPtr := fieldPtr
 	if inst.goPointer {
 		newVal := allocate(inst.elemType, opts)
 		targetPtr = unsafe.Pointer(newVal.Pointer())
@@ -1198,16 +1281,31 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		if d.off < len(d.data) && d.data[d.off] == '"' {
 			s, err := d.readStringBytes()
 			if err != nil {
+				if inst.goPointer {
+					*(*unsafe.Pointer)(fieldPtr) = nil
+				}
 				return err
 			}
 			var ok bool
 			ev, ok = inst.enumValueMap[unsafeString(s)]
 			if !ok {
+				if opts.DiscardUnknown {
+					if inst.goPointer {
+						*(*unsafe.Pointer)(fieldPtr) = nil
+					}
+					return nil
+				}
+				if inst.goPointer {
+					*(*unsafe.Pointer)(fieldPtr) = nil
+				}
 				return errors.New("unknown enum value: " + unsafeString(s))
 			}
 		} else {
 			val, err := d.readInt32()
 			if err != nil {
+				if inst.goPointer {
+					*(*unsafe.Pointer)(fieldPtr) = nil
+				}
 				return err
 			}
 			ev = val
@@ -1334,6 +1432,9 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 				var ok bool
 				ev, ok = inst.enumValueMap[unsafeString(s)]
 				if !ok {
+					if opts.DiscardUnknown {
+						return nil
+					}
 					return errors.New("unknown enum value: " + unsafeString(s))
 				}
 			} else {
@@ -1629,6 +1730,9 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		val, err := unmarshalProtoreflectValue(inst.fd, target, d, opts)
 		if err != nil {
+			if opts.DiscardUnknown && err == errUnknownEnum {
+				return nil
+			}
 			return err
 		}
 		pref.Set(inst.fd, val)
@@ -1647,9 +1751,8 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		sliceVal.SetLen(0)
 
 		return d.parseArray(func() error {
-			if d.readNull() {
-				sliceVal.Set(reflect.Append(sliceVal, reflect.Zero(sliceVal.Type().Elem())))
-				return nil
+			if d.peekNull() {
+				return errors.New("repeated field elements cannot be null")
 			}
 			newElem := allocate(inst.elemType, opts)
 			var err error
@@ -2281,6 +2384,9 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 			enumDesc := fd.Enum()
 			enumVal := enumDesc.Values().ByName(protoreflect.Name(name))
 			if enumVal == nil {
+				if opts.DiscardUnknown {
+					return protoreflect.Value{}, errUnknownEnum
+				}
 				return protoreflect.Value{}, fmt.Errorf("unknown enum value name: %q", name)
 			}
 			return protoreflect.ValueOfEnum(enumVal.Number()), nil
@@ -2428,6 +2534,9 @@ func unmarshalMap(pref protoreflect.Message, inst *fieldInstruction, d *decBuffe
 		}
 		parsedVal, err := unmarshalProtoreflectValue(inst.fd.MapValue(), target, d, opts)
 		if err != nil {
+			if opts.DiscardUnknown && err == errUnknownEnum {
+				return nil
+			}
 			return err
 		}
 
@@ -2459,6 +2568,9 @@ func unmarshalExtensionField(pref protoreflect.Message, xt protoreflect.Extensio
 			}
 			val, err := unmarshalProtoreflectValue(fd, target, d, opts)
 			if err != nil {
+				if opts.DiscardUnknown && err == errUnknownEnum {
+					return nil
+				}
 				return err
 			}
 			list.Append(val)
@@ -2475,6 +2587,9 @@ func unmarshalExtensionField(pref protoreflect.Message, xt protoreflect.Extensio
 	}
 	val, err := unmarshalProtoreflectValue(fd, target, d, opts)
 	if err != nil {
+		if opts.DiscardUnknown && err == errUnknownEnum {
+			return nil
+		}
 		return err
 	}
 	pref.Set(fd, val)

@@ -300,6 +300,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 			isOptional: isOptional,
 			goPointer:  goPointer,
 			elemType:   structType,
+			fd:         fd,
 		}
 
 		if fd.IsMap() {

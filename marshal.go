@@ -121,14 +121,6 @@ func (b *encBuffer) writeBool(v bool) {
 	}
 }
 
-// stringSlicePool avoids allocating a key slice on every map encode. Map keys
-// are sorted to keep output deterministic.
-var stringSlicePool = sync.Pool{
-	New: func() interface{} {
-		s := make([]string, 0, 16)
-		return &s
-	},
-}
 
 type MarshalOptions struct {
 	EmitUnpopulated bool
@@ -510,11 +502,15 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
 				if present {
-					enumStr, ok := inst.enumNameMap[val]
-					if ok {
-						b.writeEscapedString(enumStr)
+					if inst.fd != nil && inst.fd.Enum() != nil && inst.fd.Enum().FullName() == "google.protobuf.NullValue" {
+						b.buf = append(b.buf, "null"...)
 					} else {
-						b.writeInt64(int64(val))
+						enumStr, ok := inst.enumNameMap[val]
+						if ok {
+							b.writeEscapedString(enumStr)
+						} else {
+							b.writeInt64(int64(val))
+						}
 					}
 				} else {
 					b.buf = append(b.buf, "null"...)
@@ -1133,7 +1129,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 	// Extensions
 	if table.hasExtensionRanges {
 		var err error
-		wroteAny, err = table.marshalExtensions(ptr, pref, b, opts, wroteAny)
+		_, err = table.marshalExtensions(ptr, pref, b, opts, wroteAny)
 		if err != nil {
 			return err
 		}
@@ -1493,11 +1489,15 @@ func marshalProtoreflectValue(val protoreflect.Value, fd protoreflect.FieldDescr
 	case protoreflect.EnumKind:
 		num := int32(val.Enum())
 		enumDesc := fd.Enum()
-		enumVal := enumDesc.Values().ByNumber(protoreflect.EnumNumber(num))
-		if enumVal != nil {
-			b.writeEscapedString(string(enumVal.Name()))
+		if enumDesc.FullName() == "google.protobuf.NullValue" {
+			b.buf = append(b.buf, "null"...)
 		} else {
-			b.writeInt64(int64(num))
+			enumVal := enumDesc.Values().ByNumber(protoreflect.EnumNumber(num))
+			if enumVal != nil {
+				b.writeEscapedString(string(enumVal.Name()))
+			} else {
+				b.writeInt64(int64(num))
+			}
 		}
 	case protoreflect.MessageKind, protoreflect.GroupKind:
 		msg := val.Message().Interface()

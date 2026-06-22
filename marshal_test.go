@@ -113,26 +113,11 @@ func TestComprehensiveShapes(t *testing.T) {
 	})
 }
 
-func TestRepeatedMessageNullElementRoundTrip(t *testing.T) {
-	msg := &testpb.ComplexMessage{
-		RepeatedMessage: []*testpb.ChildMessage{
-			nil,
-			{Name: "after nil", Value: 7},
-		},
-	}
-
-	data, err := Marshal(msg)
-	require.NoError(t, err)
-	assert.Contains(t, string(data), `"repeatedMessage":[null,`)
-
+func TestRepeatedMessageNullElementRejects(t *testing.T) {
+	data := []byte(`{"repeatedMessage":[null,{"name":"after nil","value":7}]}`)
 	var out testpb.ComplexMessage
-	err = Unmarshal(data, &out)
-	require.NoError(t, err)
-
-	require.Len(t, out.RepeatedMessage, 2)
-	assert.Nil(t, out.RepeatedMessage[0])
-	require.NotNil(t, out.RepeatedMessage[1])
-	assert.Equal(t, "after nil", out.RepeatedMessage[1].GetName())
+	err := Unmarshal(data, &out)
+	require.Error(t, err)
 }
 
 func TestConcurrentColdTableUse(t *testing.T) {
