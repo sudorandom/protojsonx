@@ -679,6 +679,214 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, `":null`...)
 				wroteAny = true
 			}
+		case TypeDoubleValue:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*float64)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeFloat64(val, 64)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeFloatValue:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*float32)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeFloat64(float64(val), 32)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeInt64Value:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*int64)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeInt64String(val)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeUint64Value:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*uint64)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeUint64String(val)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeInt32Value:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*int32)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeInt64(int64(val))
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeUint32Value:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*uint32)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeUint64(uint64(val))
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeBoolValue:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*bool)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeBool(val)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeStringValue:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*string)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeEscapedString(val)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeBytesValue:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := *(*[]byte)(unsafe.Add(subMsgPtr, inst.valueOffset))
+				b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeEmpty:
+			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
+			if subMsgPtr != nil {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":{}`...)
+				wroteAny = true
+			} else if opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
 		case TypeProtojsonWellKnown:
 			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
 			if subMsgPtr != nil {

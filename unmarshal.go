@@ -47,8 +47,9 @@ func allocate(t reflect.Type, opts UnmarshalOptions) reflect.Value {
 // decBuffer is a cursor over the input JSON. The parser is intentionally
 // minimal: callers choose the expected token based on the compiled field type.
 type decBuffer struct {
-	data []byte
-	off  int
+	data  []byte
+	off   int
+	depth int
 }
 
 // skipWhitespace advances over JSON whitespace without allocation.
@@ -334,6 +335,31 @@ func (d *decBuffer) readNull() bool {
 	return false
 }
 
+func (d *decBuffer) isObject() bool {
+	d.skipWhitespace()
+	return d.off < len(d.data) && d.data[d.off] == '{'
+}
+
+func (d *decBuffer) unmarshalWrapper(opts UnmarshalOptions, inst *fieldInstruction, fieldPtr unsafe.Pointer, readVal func() error) error {
+	subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+	if *subMsgPtrPtr == nil {
+		newVal := allocate(inst.elemType, opts)
+		*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+	}
+	if d.isObject() {
+		return d.parseObject(func(key []byte) error {
+			if string(key) == "value" {
+				return readVal()
+			}
+			if opts.DiscardUnknown {
+				return d.skipValue()
+			}
+			return errors.New("unknown field in wrapper: " + string(key))
+		})
+	}
+	return readVal()
+}
+
 // skipValue validates and skips one complete JSON value. It is used only for
 // DiscardUnknown, so it favors correctness over micro-optimizing the hot path.
 func (d *decBuffer) skipValue() error {
@@ -343,19 +369,26 @@ func (d *decBuffer) skipValue() error {
 	}
 	switch d.data[d.off] {
 	case '{':
+		d.depth++
+		if d.depth > 100 {
+			return errors.New("exceeded maximum recursion depth")
+		}
 		d.off++
 		first := true
 		for {
 			d.skipWhitespace()
 			if d.off >= len(d.data) {
+				d.depth--
 				return errors.New("unexpected EOF")
 			}
 			if d.data[d.off] == '}' {
 				d.off++
+				d.depth--
 				return nil
 			}
 			if !first {
 				if d.data[d.off] != ',' {
+					d.depth--
 					return errors.New("expected ','")
 				}
 				d.off++
@@ -363,31 +396,41 @@ func (d *decBuffer) skipValue() error {
 			}
 			first = false
 			if _, err := d.readStringBytes(); err != nil {
+				d.depth--
 				return err
 			}
 			d.skipWhitespace()
 			if d.off >= len(d.data) || d.data[d.off] != ':' {
+				d.depth--
 				return errors.New("expected ':'")
 			}
 			d.off++
 			if err := d.skipValue(); err != nil {
+				d.depth--
 				return err
 			}
 		}
 	case '[':
+		d.depth++
+		if d.depth > 100 {
+			return errors.New("exceeded maximum recursion depth")
+		}
 		d.off++
 		first := true
 		for {
 			d.skipWhitespace()
 			if d.off >= len(d.data) {
+				d.depth--
 				return errors.New("unexpected EOF")
 			}
 			if d.data[d.off] == ']' {
 				d.off++
+				d.depth--
 				return nil
 			}
 			if !first {
 				if d.data[d.off] != ',' {
+					d.depth--
 					return errors.New("expected ','")
 				}
 				d.off++
@@ -395,6 +438,7 @@ func (d *decBuffer) skipValue() error {
 			}
 			first = false
 			if err := d.skipValue(); err != nil {
+				d.depth--
 				return err
 			}
 		}
@@ -427,20 +471,27 @@ func (d *decBuffer) parseObject(fn func(key []byte) error) error {
 	if d.off >= len(d.data) || d.data[d.off] != '{' {
 		return errors.New("expected '{'")
 	}
+	d.depth++
+	if d.depth > 100 {
+		return errors.New("exceeded maximum recursion depth")
+	}
 	d.off++
 
 	first := true
 	for {
 		d.skipWhitespace()
 		if d.off >= len(d.data) {
+			d.depth--
 			return errors.New("unexpected EOF")
 		}
 		if d.data[d.off] == '}' {
 			d.off++
+			d.depth--
 			return nil
 		}
 		if !first {
 			if d.data[d.off] != ',' {
+				d.depth--
 				return errors.New("expected ','")
 			}
 			d.off++
@@ -450,16 +501,19 @@ func (d *decBuffer) parseObject(fn func(key []byte) error) error {
 
 		key, err := d.readStringBytes()
 		if err != nil {
+			d.depth--
 			return err
 		}
 		d.skipWhitespace()
 		if d.off >= len(d.data) || d.data[d.off] != ':' {
+			d.depth--
 			return errors.New("expected ':'")
 		}
 		d.off++
 
 		err = fn(key)
 		if err != nil {
+			d.depth--
 			return err
 		}
 	}
@@ -472,20 +526,27 @@ func (d *decBuffer) parseArray(fn func() error) error {
 	if d.off >= len(d.data) || d.data[d.off] != '[' {
 		return errors.New("expected '['")
 	}
+	d.depth++
+	if d.depth > 100 {
+		return errors.New("exceeded maximum recursion depth")
+	}
 	d.off++
 
 	first := true
 	for {
 		d.skipWhitespace()
 		if d.off >= len(d.data) {
+			d.depth--
 			return errors.New("unexpected EOF")
 		}
 		if d.data[d.off] == ']' {
 			d.off++
+			d.depth--
 			return nil
 		}
 		if !first {
 			if d.data[d.off] != ',' {
+				d.depth--
 				return errors.New("expected ','")
 			}
 			d.off++
@@ -495,6 +556,7 @@ func (d *decBuffer) parseArray(fn func() error) error {
 
 		err := fn()
 		if err != nil {
+			d.depth--
 			return err
 		}
 	}
@@ -513,6 +575,14 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 		return errors.New("unmarshal target must be non-nil pointer")
 	}
 	if isProtojsonCustomWellKnown(msg.ProtoReflect().Descriptor().FullName()) {
+		d := &decBuffer{data: data}
+		if err := d.skipValue(); err != nil {
+			return err
+		}
+		d.skipWhitespace()
+		if d.off != len(d.data) {
+			return errors.New("unexpected trailing data")
+		}
 		return protojson.UnmarshalOptions{
 			DiscardUnknown: o.DiscardUnknown,
 		}.Unmarshal(data, msg)
@@ -523,6 +593,14 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 		return err
 	}
 	if table.useProtojson {
+		d := &decBuffer{data: data}
+		if err := d.skipValue(); err != nil {
+			return err
+		}
+		d.skipWhitespace()
+		if d.off != len(d.data) {
+			return errors.New("unexpected trailing data")
+		}
 		return protojson.UnmarshalOptions{
 			DiscardUnknown: o.DiscardUnknown,
 		}.Unmarshal(data, msg)
@@ -588,7 +666,7 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 			*(*[][]byte)(fieldPtr) = nil
 		case TypeMapStringString:
 			*(*map[string]string)(fieldPtr) = nil
-		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty:
 			*(*unsafe.Pointer)(fieldPtr) = nil
 		case TypeRepeatedMessage:
 			*(*[]unsafe.Pointer)(fieldPtr) = nil
@@ -648,7 +726,7 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 		*(*[][]byte)(fieldPtr) = nil
 	case TypeMapStringString:
 		*(*map[string]string)(fieldPtr) = nil
-	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
+	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty:
 		*(*unsafe.Pointer)(fieldPtr) = nil
 	case TypeRepeatedMessage:
 		*(*[]unsafe.Pointer)(fieldPtr) = nil
@@ -737,7 +815,7 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 			if len(*(*map[string]string)(fieldPtr)) != 0 {
 				return false
 			}
-		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty:
 			if *(*unsafe.Pointer)(fieldPtr) != nil {
 				return false
 			}
@@ -1221,6 +1299,152 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		*(*int64)(unsafe.Add(*subMsgPtrPtr, inst.secondsOffset)) = secs
 		*(*int32)(unsafe.Add(*subMsgPtrPtr, inst.nanosOffset)) = int32(nanos)
+	case TypeDoubleValue:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readFloat64()
+			if err != nil {
+				return err
+			}
+			*(*float64)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeFloatValue:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readFloat32()
+			if err != nil {
+				return err
+			}
+			*(*float32)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeInt64Value:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readInt64()
+			if err != nil {
+				return err
+			}
+			*(*int64)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeUint64Value:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readUint64()
+			if err != nil {
+				return err
+			}
+			*(*uint64)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeInt32Value:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readInt32()
+			if err != nil {
+				return err
+			}
+			*(*int32)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeUint32Value:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readUint32()
+			if err != nil {
+				return err
+			}
+			*(*uint32)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeBoolValue:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			val, err := d.readBool()
+			if err != nil {
+				return err
+			}
+			*(*bool)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeStringValue:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			s, err := d.readStringBytes()
+			if err != nil {
+				return err
+			}
+			var val string
+			if opts.ZeroCopy {
+				val = unsafeString(s)
+			} else {
+				val = string(s)
+			}
+			*(*string)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeBytesValue:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		err := d.unmarshalWrapper(opts, inst, fieldPtr, func() error {
+			s, err := d.readStringBytes()
+			if err != nil {
+				return err
+			}
+			decoded, err := base64.StdEncoding.DecodeString(unsafeString(s))
+			if err != nil {
+				return err
+			}
+			*(*[]byte)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = decoded
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	case TypeEmpty:
+		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
+		if *subMsgPtrPtr == nil {
+			newVal := allocate(inst.elemType, opts)
+			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+		}
+		if d.isObject() {
+			err := d.parseObject(func(key []byte) error {
+				if opts.DiscardUnknown {
+					return d.skipValue()
+				}
+				return errors.New("unknown field in Empty: " + string(key))
+			})
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.New("expected empty object for Empty")
+		}
 	case TypeProtojsonWellKnown:
 		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
 		if *subMsgPtrPtr == nil {
@@ -1232,7 +1456,9 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		if err := d.skipValue(); err != nil {
 			return err
 		}
-		return protojson.Unmarshal(d.data[start:d.off], msg)
+		return protojson.UnmarshalOptions{
+			DiscardUnknown: opts.DiscardUnknown,
+		}.Unmarshal(d.data[start:d.off], msg)
 	case TypeRepeatedMessage:
 		if inst.msgNeedsWait {
 			if err := inst.msgTable.wait(); err != nil {

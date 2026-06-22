@@ -1,6 +1,7 @@
 package protojsonx
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 
@@ -282,4 +283,97 @@ func TestBumpAllocatorResetReturnsZeroedMemory(t *testing.T) {
 	assert.Equal(t, "fresh", second.ChildField.Name)
 	assert.Equal(t, int32(0), second.ChildField.Value)
 	assert.Nil(t, second.RepeatedMessage)
+}
+
+func TestUnmarshalWrappersObjectAndPrimitive(t *testing.T) {
+	t.Run("Primitive wrapper values", func(t *testing.T) {
+		jsonData := []byte(`{
+			"doubleValueField": 1.23,
+			"floatValueField": 4.56,
+			"int64ValueField": "1234567890",
+			"uint64ValueField": "9876543210",
+			"int32ValueField": 123,
+			"uint32ValueField": 456,
+			"boolValueField": true,
+			"stringValueField": "hello",
+			"bytesValueField": "Ynl0ZXM=",
+			"emptyField": {}
+		}`)
+		var out testpb.SpecMessage
+		err := Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1.23, out.DoubleValueField.Value)
+		assert.Equal(t, float32(4.56), out.FloatValueField.Value)
+		assert.Equal(t, int64(1234567890), out.Int64ValueField.Value)
+		assert.Equal(t, uint64(9876543210), out.Uint64ValueField.Value)
+		assert.Equal(t, int32(123), out.Int32ValueField.Value)
+		assert.Equal(t, uint32(456), out.Uint32ValueField.Value)
+		assert.Equal(t, true, out.BoolValueField.Value)
+		assert.Equal(t, "hello", out.StringValueField.Value)
+		assert.Equal(t, []byte("bytes"), out.BytesValueField.Value)
+		assert.NotNil(t, out.EmptyField)
+	})
+
+	t.Run("Object wrapper values", func(t *testing.T) {
+		jsonData := []byte(`{
+			"doubleValueField": {"value": 1.23},
+			"floatValueField": {"value": 4.56},
+			"int64ValueField": {"value": "1234567890"},
+			"uint64ValueField": {"value": "9876543210"},
+			"int32ValueField": {"value": 123},
+			"uint32ValueField": {"value": 456},
+			"boolValueField": {"value": true},
+			"stringValueField": {"value": "hello"},
+			"bytesValueField": {"value": "Ynl0ZXM="}
+		}`)
+		var out testpb.SpecMessage
+		err := Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1.23, out.DoubleValueField.Value)
+		assert.Equal(t, float32(4.56), out.FloatValueField.Value)
+		assert.Equal(t, int64(1234567890), out.Int64ValueField.Value)
+		assert.Equal(t, uint64(9876543210), out.Uint64ValueField.Value)
+		assert.Equal(t, int32(123), out.Int32ValueField.Value)
+		assert.Equal(t, uint32(456), out.Uint32ValueField.Value)
+		assert.Equal(t, true, out.BoolValueField.Value)
+		assert.Equal(t, "hello", out.StringValueField.Value)
+		assert.Equal(t, []byte("bytes"), out.BytesValueField.Value)
+	})
+
+	t.Run("Object wrappers with DiscardUnknown true", func(t *testing.T) {
+		jsonData := []byte(`{
+			"stringValueField": {"value": "hello", "unknown_field": 123},
+			"emptyField": {"unknown_field": 456}
+		}`)
+		var out testpb.SpecMessage
+		err := (UnmarshalOptions{DiscardUnknown: true}).Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", out.StringValueField.Value)
+		assert.NotNil(t, out.EmptyField)
+
+		// DiscardUnknown false should reject it
+		var outReject testpb.SpecMessage
+		err = (UnmarshalOptions{DiscardUnknown: false}).Unmarshal(jsonData, &outReject)
+		require.Error(t, err)
+	})
+}
+
+func TestUnmarshalRecursionLimit(t *testing.T) {
+	// Construct a deeply nested JSON payload (101 levels of objects)
+	// {"childField": {"childField": ... }}
+	var buf bytes.Buffer
+	for i := 0; i < 101; i++ {
+		buf.WriteString(`{"childField":`)
+	}
+	buf.WriteString(`{}`)
+	for i := 0; i < 101; i++ {
+		buf.WriteString(`}`)
+	}
+
+	var msg testpb.ComplexMessage
+	err := UnmarshalOptions{DiscardUnknown: true}.Unmarshal(buf.Bytes(), &msg)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeded maximum recursion depth")
 }

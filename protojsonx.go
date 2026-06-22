@@ -43,6 +43,16 @@ const (
 	TypeTimestamp
 	TypeDuration
 	TypeProtojsonWellKnown
+	TypeDoubleValue
+	TypeFloatValue
+	TypeInt64Value
+	TypeUint64Value
+	TypeInt32Value
+	TypeUint32Value
+	TypeBoolValue
+	TypeStringValue
+	TypeBytesValue
+	TypeEmpty
 	TypeRepeatedString
 	TypeRepeatedMessage
 	TypeMapStringString
@@ -74,9 +84,10 @@ type fieldInstruction struct {
 	// For repeated messages
 	elemType reflect.Type
 
-	// Offset helpers for Timestamp/Duration
+	// Offset helpers for Timestamp/Duration/Wrappers
 	secondsOffset uintptr
 	nanosOffset   uintptr
+	valueOffset   uintptr
 }
 
 type MessageTable struct {
@@ -407,6 +418,53 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 						inst.secondsOffset = fSec.Offset
 						inst.nanosOffset = fNano.Offset
 					}
+				case "google.protobuf.DoubleValue":
+					inst.ftype = TypeDoubleValue
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.FloatValue":
+					inst.ftype = TypeFloatValue
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.Int64Value":
+					inst.ftype = TypeInt64Value
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.UInt64Value":
+					inst.ftype = TypeUint64Value
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.Int32Value":
+					inst.ftype = TypeInt32Value
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.UInt32Value":
+					inst.ftype = TypeUint32Value
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.BoolValue":
+					inst.ftype = TypeBoolValue
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.StringValue":
+					inst.ftype = TypeStringValue
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.BytesValue":
+					inst.ftype = TypeBytesValue
+					if fVal, okVal := structType.FieldByName("Value"); okVal {
+						inst.valueOffset = fVal.Offset
+					}
+				case "google.protobuf.Empty":
+					inst.ftype = TypeEmpty
 				default:
 					if isProtojsonCustomWellKnown(fullName) {
 						inst.ftype = TypeProtojsonWellKnown
