@@ -19,14 +19,17 @@ import (
 	"errors"
 	"math"
 	"reflect"
-	"sort"
 	"strconv"
 	"sync"
 	"time"
 	"unsafe"
 
-	"google.golang.org/protobuf/encoding/protojson"
+	"fmt"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"slices"
+	"strings"
 )
 
 // encBufPool reuses the scratch buffer used while building JSON. Marshal still
@@ -142,22 +145,24 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 	if !val.IsValid() || val.Kind() != reflect.Pointer || val.IsNil() {
 		return nil, errors.New("marshal target must be non-nil pointer")
 	}
-	if isProtojsonCustomWellKnown(msg.ProtoReflect().Descriptor().FullName()) {
-		return protojson.MarshalOptions{
-			EmitUnpopulated: o.EmitUnpopulated,
-			UseProtoNames:   o.UseProtoNames,
-		}.Marshal(msg)
-	}
 
 	table, err := getTable(msg)
 	if err != nil {
 		return nil, err
 	}
-	if table.useProtojson {
-		return protojson.MarshalOptions{
-			EmitUnpopulated: o.EmitUnpopulated,
-			UseProtoNames:   o.UseProtoNames,
-		}.Marshal(msg)
+
+	if isCustomWellKnown(table.fullName) {
+		eb := encBufPool.Get().(*encBuffer)
+		eb.buf = eb.buf[:0]
+		err := marshalCustomWellKnown(msg, eb, o)
+		if err != nil {
+			encBufPool.Put(eb)
+			return nil, err
+		}
+		data := make([]byte, len(eb.buf))
+		copy(data, eb.buf)
+		encBufPool.Put(eb)
+		return data, nil
 	}
 
 	eb := encBufPool.Get().(*encBuffer)
@@ -238,23 +243,12 @@ func (b *encBuffer) appendPaddedInt32(v int32, width int) {
 // marshalTo is the recursive encoder used for both root and nested messages.
 // ptr must point at the generated message struct matching table.goType.
 func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts MarshalOptions) error {
-	if table.useProtojson {
-		msg := reflect.NewAt(table.goType, ptr).Interface().(proto.Message)
-		data, err := protojson.MarshalOptions{
-			EmitUnpopulated: opts.EmitUnpopulated,
-			UseProtoNames:   opts.UseProtoNames,
-		}.Marshal(msg)
-		if err != nil {
-			return err
-		}
-		b.buf = append(b.buf, data...)
-		return nil
-	}
-
 	b.writeByte('{')
 	wroteAny := false
+	var pref protoreflect.Message
 
-	for _, inst := range table.fields {
+	for i := range table.fields {
+		inst := &table.fields[i]
 		fieldPtr := unsafe.Add(ptr, inst.offset)
 		fieldName := inst.jsonName
 		if opts.UseProtoNames {
@@ -263,127 +257,267 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 
 		switch inst.ftype {
 		case TypeString:
-			val := *(*string)(fieldPtr)
-			if val != "" || opts.EmitUnpopulated {
+			var val string
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*string)(ptrVal)
+				}
+			} else {
+				val = *(*string)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != "") || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeEscapedString(val)
+				if present {
+					b.writeEscapedString(val)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeInt32:
-			val := *(*int32)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val int32
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*int32)(ptrVal)
+				}
+			} else {
+				val = *(*int32)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeInt64(int64(val))
+				if present {
+					b.writeInt64(int64(val))
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeInt64:
-			val := *(*int64)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val int64
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*int64)(ptrVal)
+				}
+			} else {
+				val = *(*int64)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeInt64String(val)
+				if present {
+					b.writeInt64String(val)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeUint32:
-			val := *(*uint32)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val uint32
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*uint32)(ptrVal)
+				}
+			} else {
+				val = *(*uint32)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeUint64(uint64(val))
+				if present {
+					b.writeUint64(uint64(val))
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeUint64:
-			val := *(*uint64)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val uint64
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*uint64)(ptrVal)
+				}
+			} else {
+				val = *(*uint64)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeUint64String(val)
+				if present {
+					b.writeUint64String(val)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeFloat32:
-			val := *(*float32)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val float32
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*float32)(ptrVal)
+				}
+			} else {
+				val = *(*float32)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeFloat64(float64(val), 32)
+				if present {
+					b.writeFloat64(float64(val), 32)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeFloat64:
-			val := *(*float64)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val float64
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*float64)(ptrVal)
+				}
+			} else {
+				val = *(*float64)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeFloat64(val, 64)
+				if present {
+					b.writeFloat64(val, 64)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeBool:
-			val := *(*bool)(fieldPtr)
-			if val || opts.EmitUnpopulated {
+			var val bool
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*bool)(ptrVal)
+				}
+			} else {
+				val = *(*bool)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeBool(val)
+				if present {
+					b.writeBool(val)
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeBytes:
 			val := *(*[]byte)(fieldPtr)
-			if len(val) > 0 || opts.EmitUnpopulated {
+			present := val != nil
+			if (inst.isOptional && present) || (!inst.isOptional && len(val) > 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
+				if present {
+					b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
+				} else {
+					b.buf = append(b.buf, "null"...)
+				}
 				wroteAny = true
 			}
 		case TypeEnum:
-			val := *(*int32)(fieldPtr)
-			if val != 0 || opts.EmitUnpopulated {
+			var val int32
+			present := true
+			if inst.isOptional {
+				ptrVal := *(*unsafe.Pointer)(fieldPtr)
+				if ptrVal == nil {
+					present = false
+				} else {
+					val = *(*int32)(ptrVal)
+				}
+			} else {
+				val = *(*int32)(fieldPtr)
+			}
+			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				enumStr, ok := inst.enumNameMap[val]
-				if ok {
-					b.writeEscapedString(enumStr)
+				if present {
+					enumStr, ok := inst.enumNameMap[val]
+					if ok {
+						b.writeEscapedString(enumStr)
+					} else {
+						b.writeInt64(int64(val))
+					}
 				} else {
-					b.writeInt64(int64(val))
+					b.buf = append(b.buf, "null"...)
 				}
 				wroteAny = true
 			}
@@ -582,12 +716,17 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":{`...)
 
-				keysPtr := stringSlicePool.Get().(*[]string)
-				keys := (*keysPtr)[:0]
+				var arr [16]string
+				var keys []string
+				if len(val) <= 16 {
+					keys = arr[:0]
+				} else {
+					keys = make([]string, 0, len(val))
+				}
 				for k := range val {
 					keys = append(keys, k)
 				}
-				sort.Strings(keys)
+				slices.Sort(keys)
 
 				for j, k := range keys {
 					if j > 0 {
@@ -597,8 +736,6 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 					b.writeByte(':')
 					b.writeEscapedString(val[k])
 				}
-				*keysPtr = keys
-				stringSlicePool.Put(keysPtr)
 
 				b.writeByte('}')
 				wroteAny = true
@@ -638,14 +775,16 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			if subMsgPtr != nil {
 				secs := *(*int64)(unsafe.Add(subMsgPtr, inst.secondsOffset))
 				nanos := *(*int32)(unsafe.Add(subMsgPtr, inst.nanosOffset))
+				if err := validateTimestamp(secs, nanos); err != nil {
+					return err
+				}
 				if wroteAny {
 					b.writeByte(',')
 				}
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				t := time.Unix(secs, int64(nanos)).UTC()
-				b.writeEscapedString(t.Format(time.RFC3339Nano))
+				b.writeEscapedString(formatTimestamp(secs, nanos))
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
 				if wroteAny {
@@ -661,6 +800,9 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			if subMsgPtr != nil {
 				secs := *(*int64)(unsafe.Add(subMsgPtr, inst.secondsOffset))
 				nanos := *(*int32)(unsafe.Add(subMsgPtr, inst.nanosOffset))
+				if err := validateDuration(secs, nanos); err != nil {
+					return err
+				}
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -887,7 +1029,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, `":null`...)
 				wroteAny = true
 			}
-		case TypeProtojsonWellKnown:
+		case TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
 			subMsgPtr := *(*unsafe.Pointer)(fieldPtr)
 			if subMsgPtr != nil {
 				if wroteAny {
@@ -897,14 +1039,9 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
 				msg := reflect.NewAt(inst.elemType, subMsgPtr).Interface().(proto.Message)
-				data, err := protojson.MarshalOptions{
-					EmitUnpopulated: opts.EmitUnpopulated,
-					UseProtoNames:   opts.UseProtoNames,
-				}.Marshal(msg)
-				if err != nil {
+				if err := marshalCustomWellKnown(msg, b, opts); err != nil {
 					return err
 				}
-				b.buf = append(b.buf, data...)
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
 				if wroteAny {
@@ -913,6 +1050,44 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":null`...)
+				wroteAny = true
+			}
+		case TypeOneofField:
+			if pref == nil {
+				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			}
+			if pref.Has(inst.fd) {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				val := pref.Get(inst.fd)
+				if err := marshalProtoreflectValue(val, inst.fd, b, opts); err != nil {
+					return err
+				}
+				wroteAny = true
+			}
+		case TypeMapField:
+			if pref == nil {
+				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			}
+			m := pref.Get(inst.fd).Map()
+			if m.Len() > 0 || opts.EmitUnpopulated {
+				if wroteAny {
+					b.writeByte(',')
+				}
+				b.buf = append(b.buf, '"')
+				b.buf = append(b.buf, fieldName...)
+				b.buf = append(b.buf, `":`...)
+				if m.Len() == 0 {
+					b.buf = append(b.buf, "{}"...)
+				} else {
+					if err := marshalMap(pref, inst, b, opts); err != nil {
+						return err
+					}
+				}
 				wroteAny = true
 			}
 		case TypeRepeatedMessage:
@@ -929,14 +1104,20 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 						b.writeByte(',')
 					}
 					if itemPtr != nil {
-						if inst.msgNeedsWait {
-							if err := inst.msgTable.wait(); err != nil {
-								return err
+						var err error
+						if isCustomWellKnown(inst.msgTable.fullName) {
+							msg := reflect.NewAt(inst.elemType, itemPtr).Interface().(proto.Message)
+							err = marshalCustomWellKnown(msg, b, opts)
+						} else {
+							if inst.msgNeedsWait {
+								if err = inst.msgTable.wait(); err != nil {
+									return err
+								}
+							} else if inst.msgTable.err != nil {
+								return inst.msgTable.err
 							}
-						} else if inst.msgTable.err != nil {
-							return inst.msgTable.err
+							err = inst.msgTable.marshalTo(itemPtr, b, opts)
 						}
-						err := inst.msgTable.marshalTo(itemPtr, b, opts)
 						if err != nil {
 							return err
 						}
@@ -949,6 +1130,530 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			}
 		}
 	}
+	// Extensions
+	if table.hasExtensionRanges {
+		var err error
+		wroteAny, err = table.marshalExtensions(ptr, pref, b, opts, wroteAny)
+		if err != nil {
+			return err
+		}
+	}
 	b.writeByte('}')
 	return nil
+}
+
+func (table *MessageTable) marshalExtensions(ptr unsafe.Pointer, pref protoreflect.Message, b *encBuffer, opts MarshalOptions, wroteAny bool) (bool, error) {
+	if pref == nil {
+		pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+	}
+	var extErr error
+	pref.Range(func(fd protoreflect.FieldDescriptor, val protoreflect.Value) bool {
+		if !fd.IsExtension() {
+			return true
+		}
+		if wroteAny {
+			b.writeByte(',')
+		}
+		b.buf = append(b.buf, `"[`...)
+		b.buf = append(b.buf, string(fd.FullName())...)
+		b.buf = append(b.buf, `]":`...)
+		if fd.IsList() {
+			b.writeByte('[')
+			list := val.List()
+			for j := 0; j < list.Len(); j++ {
+				if j > 0 {
+					b.writeByte(',')
+				}
+				if err := marshalProtoreflectValue(list.Get(j), fd, b, opts); err != nil {
+					extErr = err
+					return false
+				}
+			}
+			b.writeByte(']')
+		} else {
+			if err := marshalProtoreflectValue(val, fd, b, opts); err != nil {
+				extErr = err
+				return false
+			}
+		}
+		wroteAny = true
+		return true
+	})
+	return wroteAny, extErr
+}
+
+func isCustomWellKnown(fullName protoreflect.FullName) bool {
+	switch fullName {
+	case "google.protobuf.Any",
+		"google.protobuf.Empty",
+		"google.protobuf.Struct",
+		"google.protobuf.Value",
+		"google.protobuf.ListValue",
+		"google.protobuf.FieldMask",
+		"google.protobuf.Timestamp",
+		"google.protobuf.Duration",
+		"google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int64Value",
+		"google.protobuf.UInt64Value",
+		"google.protobuf.Int32Value",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.BoolValue",
+		"google.protobuf.StringValue",
+		"google.protobuf.BytesValue":
+		return true
+	default:
+		return false
+	}
+}
+
+func marshalCustomWellKnown(msg proto.Message, b *encBuffer, opts MarshalOptions) error {
+	pref := msg.ProtoReflect()
+	fullName := pref.Descriptor().FullName()
+
+	switch fullName {
+	case "google.protobuf.Empty":
+		b.buf = append(b.buf, "{}"...)
+		return nil
+	case "google.protobuf.Timestamp":
+		fdSec := pref.Descriptor().Fields().ByNumber(1)
+		fdNano := pref.Descriptor().Fields().ByNumber(2)
+		secs := pref.Get(fdSec).Int()
+		nanos := pref.Get(fdNano).Int()
+		if err := validateTimestamp(secs, int32(nanos)); err != nil {
+			return err
+		}
+		b.writeEscapedString(formatTimestamp(secs, int32(nanos)))
+		return nil
+	case "google.protobuf.Duration":
+		fdSec := pref.Descriptor().Fields().ByNumber(1)
+		fdNano := pref.Descriptor().Fields().ByNumber(2)
+		secs := pref.Get(fdSec).Int()
+		nanos := pref.Get(fdNano).Int()
+		if err := validateDuration(secs, int32(nanos)); err != nil {
+			return err
+		}
+		var s string
+		if secs == 0 && nanos < 0 {
+			s = fmt.Sprintf("-0.%09ds", -nanos)
+		} else if secs < 0 {
+			s = fmt.Sprintf("-%d.%09ds", -secs, -nanos)
+		} else {
+			s = fmt.Sprintf("%d.%09ds", secs, nanos)
+		}
+		idx := strings.IndexByte(s, '.')
+		if idx != -1 {
+			end := len(s) - 1
+			for end > idx && s[end-1] == '0' {
+				end--
+			}
+			if s[end-1] == '.' {
+				end--
+			}
+			s = s[:end] + "s"
+		}
+		b.writeEscapedString(s)
+		return nil
+	case "google.protobuf.DoubleValue",
+		"google.protobuf.FloatValue",
+		"google.protobuf.Int64Value",
+		"google.protobuf.UInt64Value",
+		"google.protobuf.Int32Value",
+		"google.protobuf.UInt32Value",
+		"google.protobuf.BoolValue",
+		"google.protobuf.StringValue",
+		"google.protobuf.BytesValue":
+		fd := pref.Descriptor().Fields().ByNumber(1)
+		val := pref.Get(fd)
+		switch fullName {
+		case "google.protobuf.DoubleValue":
+			b.writeFloat64(val.Float(), 64)
+		case "google.protobuf.FloatValue":
+			b.writeFloat64(val.Float(), 32)
+		case "google.protobuf.Int64Value":
+			b.writeInt64String(val.Int())
+		case "google.protobuf.UInt64Value":
+			b.writeUint64String(val.Uint())
+		case "google.protobuf.Int32Value":
+			b.writeInt64(val.Int())
+		case "google.protobuf.UInt32Value":
+			b.writeUint64(val.Uint())
+		case "google.protobuf.BoolValue":
+			b.writeBool(val.Bool())
+		case "google.protobuf.StringValue":
+			b.writeEscapedString(val.String())
+		case "google.protobuf.BytesValue":
+			b.writeEscapedString(base64.StdEncoding.EncodeToString(val.Bytes()))
+		}
+		return nil
+	case "google.protobuf.FieldMask":
+		return marshalFieldMask(pref, b)
+	case "google.protobuf.Struct":
+		return writeStruct(pref, b, opts)
+	case "google.protobuf.Value":
+		return writeValue(pref, b, opts)
+	case "google.protobuf.ListValue":
+		return writeListValue(pref, b, opts)
+	case "google.protobuf.Any":
+		return marshalAny(pref, b, opts)
+	}
+	return fmt.Errorf("unknown custom well-known type: %s", fullName)
+}
+
+func marshalFieldMask(pref protoreflect.Message, b *encBuffer) error {
+	fd := pref.Descriptor().Fields().ByNumber(1)
+	list := pref.Get(fd).List()
+	paths := make([]string, 0, list.Len())
+	for i := 0; i < list.Len(); i++ {
+		s := list.Get(i).String()
+		if !protoreflect.FullName(s).IsValid() {
+			return fmt.Errorf("paths contains invalid path: %q", s)
+		}
+		cc := jsonCamelCase(s)
+		if s != jsonSnakeCase(cc) {
+			return fmt.Errorf("paths contains irreversible value: %q", s)
+		}
+		paths = append(paths, cc)
+	}
+	b.writeEscapedString(strings.Join(paths, ","))
+	return nil
+}
+
+func writeStruct(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) error {
+	fd := pref.Descriptor().Fields().ByNumber(1)
+	m := pref.Get(fd).Map()
+	var arr [16]string
+	var keys []string
+	if m.Len() <= 16 {
+		keys = arr[:0]
+	} else {
+		keys = make([]string, 0, m.Len())
+	}
+	m.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+		keys = append(keys, k.String())
+		return true
+	})
+	slices.Sort(keys)
+
+	b.writeByte('{')
+	for i, k := range keys {
+		if i > 0 {
+			b.writeByte(',')
+		}
+		b.writeEscapedString(k)
+		b.writeByte(':')
+		val := m.Get(protoreflect.ValueOfString(k).MapKey())
+		if err := writeValue(val.Message(), b, opts); err != nil {
+			return err
+		}
+	}
+	b.writeByte('}')
+	return nil
+}
+
+func writeValue(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) error {
+	od := pref.Descriptor().Oneofs().ByName("kind")
+	if od == nil {
+		return fmt.Errorf("google.protobuf.Value is missing 'kind' oneof")
+	}
+	fd := pref.WhichOneof(od)
+	if fd == nil {
+		return fmt.Errorf("google.protobuf.Value: none of the oneof fields is set")
+	}
+	val := pref.Get(fd)
+	switch fd.Number() {
+	case 1: // null_value
+		b.buf = append(b.buf, "null"...)
+	case 2: // number_value
+		f := val.Float()
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("google.protobuf.Value: invalid number_value %v", f)
+		}
+		b.writeFloat64(f, 64)
+	case 3: // string_value
+		b.writeEscapedString(val.String())
+	case 4: // bool_value
+		b.writeBool(val.Bool())
+	case 5: // struct_value
+		return writeStruct(val.Message(), b, opts)
+	case 6: // list_value
+		return writeListValue(val.Message(), b, opts)
+	default:
+		return fmt.Errorf("google.protobuf.Value: unknown field number %d", fd.Number())
+	}
+	return nil
+}
+
+func writeListValue(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) error {
+	fd := pref.Descriptor().Fields().ByNumber(1)
+	list := pref.Get(fd).List()
+	b.writeByte('[')
+	for i := 0; i < list.Len(); i++ {
+		if i > 0 {
+			b.writeByte(',')
+		}
+		val := list.Get(i)
+		if err := writeValue(val.Message(), b, opts); err != nil {
+			return err
+		}
+	}
+	b.writeByte(']')
+	return nil
+}
+
+func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) error {
+	fdType := pref.Descriptor().Fields().ByNumber(1)
+	fdValue := pref.Descriptor().Fields().ByNumber(2)
+
+	if !pref.Has(fdType) {
+		if !pref.Has(fdValue) {
+			b.buf = append(b.buf, "{}"...)
+			return nil
+		}
+		return errors.New("google.protobuf.Any: type_url is not set")
+	}
+
+	typeURL := pref.Get(fdType).String()
+	valueBytes := pref.Get(fdValue).Bytes()
+
+	mt, err := protoregistry.GlobalTypes.FindMessageByURL(typeURL)
+	if err != nil {
+		return fmt.Errorf("google.protobuf.Any: unable to resolve %q: %v", typeURL, err)
+	}
+
+	em := mt.New()
+	err = proto.UnmarshalOptions{
+		AllowPartial: true,
+	}.Unmarshal(valueBytes, em.Interface())
+	if err != nil {
+		return fmt.Errorf("google.protobuf.Any: unable to unmarshal %q: %v", typeURL, err)
+	}
+
+	if isCustomWellKnown(mt.Descriptor().FullName()) {
+		b.writeByte('{')
+		b.buf = append(b.buf, `"@type":`...)
+		b.writeEscapedString(typeURL)
+		b.buf = append(b.buf, `,"value":`...)
+		if err := marshalCustomWellKnown(em.Interface(), b, opts); err != nil {
+			return err
+		}
+		b.writeByte('}')
+		return nil
+	}
+
+	b.writeByte('{')
+	b.buf = append(b.buf, `"@type":`...)
+	b.writeEscapedString(typeURL)
+
+	subTable, err := getTable(em.Interface())
+	if err != nil {
+		return err
+	}
+	subMsgPtr := unsafe.Pointer(reflect.ValueOf(em.Interface()).Pointer())
+
+	tempBuf := encBufPool.Get().(*encBuffer)
+	tempBuf.buf = tempBuf.buf[:0]
+	err = subTable.marshalTo(subMsgPtr, tempBuf, opts)
+	if err != nil {
+		encBufPool.Put(tempBuf)
+		return err
+	}
+	if len(tempBuf.buf) >= 2 && tempBuf.buf[0] == '{' && tempBuf.buf[len(tempBuf.buf)-1] == '}' {
+		stripped := tempBuf.buf[1 : len(tempBuf.buf)-1]
+		if len(stripped) > 0 {
+			b.writeByte(',')
+			b.buf = append(b.buf, stripped...)
+		}
+	}
+	encBufPool.Put(tempBuf)
+	b.writeByte('}')
+	return nil
+}
+
+func marshalProtoreflectValue(val protoreflect.Value, fd protoreflect.FieldDescriptor, b *encBuffer, opts MarshalOptions) error {
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		b.writeEscapedString(val.String())
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		b.writeInt64(val.Int())
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		b.writeInt64String(val.Int())
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		b.writeUint64(val.Uint())
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		b.writeUint64String(val.Uint())
+	case protoreflect.FloatKind:
+		b.writeFloat64(val.Float(), 32)
+	case protoreflect.DoubleKind:
+		b.writeFloat64(val.Float(), 64)
+	case protoreflect.BoolKind:
+		b.writeBool(val.Bool())
+	case protoreflect.BytesKind:
+		b.writeEscapedString(base64.StdEncoding.EncodeToString(val.Bytes()))
+	case protoreflect.EnumKind:
+		num := int32(val.Enum())
+		enumDesc := fd.Enum()
+		enumVal := enumDesc.Values().ByNumber(protoreflect.EnumNumber(num))
+		if enumVal != nil {
+			b.writeEscapedString(string(enumVal.Name()))
+		} else {
+			b.writeInt64(int64(num))
+		}
+	case protoreflect.MessageKind, protoreflect.GroupKind:
+		msg := val.Message().Interface()
+		fullName := fd.Message().FullName()
+		if isCustomWellKnown(fullName) {
+			return marshalCustomWellKnown(msg, b, opts)
+		}
+		subTable, err := getTable(msg)
+		if err != nil {
+			return err
+		}
+		subMsgPtr := unsafe.Pointer(reflect.ValueOf(msg).Pointer())
+		return subTable.marshalTo(subMsgPtr, b, opts)
+	default:
+		return fmt.Errorf("unsupported oneof field kind: %v", fd.Kind())
+	}
+	return nil
+}
+
+func jsonCamelCase(s string) string {
+	var b []byte
+	var wasUnderscore bool
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c != '_' {
+			if wasUnderscore && isASCIILower(c) {
+				c -= 'a' - 'A'
+			}
+			b = append(b, c)
+		}
+		wasUnderscore = c == '_'
+	}
+	return string(b)
+}
+
+func jsonSnakeCase(s string) string {
+	var b []byte
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if isASCIIUpper(c) {
+			b = append(b, '_')
+			c += 'a' - 'A'
+		}
+		b = append(b, c)
+	}
+	return string(b)
+}
+
+func isASCIILower(c byte) bool {
+	return 'a' <= c && c <= 'z'
+}
+
+func isASCIIUpper(c byte) bool {
+	return 'A' <= c && c <= 'Z'
+}
+
+type mapKeyVal struct {
+	key protoreflect.MapKey
+	val protoreflect.Value
+}
+
+func marshalMap(pref protoreflect.Message, inst *fieldInstruction, b *encBuffer, opts MarshalOptions) error {
+	m := pref.Get(inst.fd).Map()
+	var arr [16]mapKeyVal
+	var keys []mapKeyVal
+	if m.Len() <= 16 {
+		keys = arr[:0]
+	} else {
+		keys = make([]mapKeyVal, 0, m.Len())
+	}
+	m.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+		keys = append(keys, mapKeyVal{key: k, val: v})
+		return true
+	})
+
+	slices.SortFunc(keys, func(a, b mapKeyVal) int {
+		ki := a.key
+		kj := b.key
+		switch ki.Interface().(type) {
+		case string:
+			if ki.String() < kj.String() {
+				return -1
+			} else if ki.String() > kj.String() {
+				return 1
+			}
+			return 0
+		case bool:
+			if !ki.Bool() && kj.Bool() {
+				return -1
+			} else if ki.Bool() && !kj.Bool() {
+				return 1
+			}
+			return 0
+		case int32, int64:
+			if ki.Int() < kj.Int() {
+				return -1
+			} else if ki.Int() > kj.Int() {
+				return 1
+			}
+			return 0
+		case uint32, uint64:
+			if ki.Uint() < kj.Uint() {
+				return -1
+			} else if ki.Uint() > kj.Uint() {
+				return 1
+			}
+			return 0
+		default:
+			return 0
+		}
+	})
+
+	b.writeByte('{')
+	for idx, kv := range keys {
+		if idx > 0 {
+			b.writeByte(',')
+		}
+		switch k := kv.key.Interface().(type) {
+		case string:
+			b.writeEscapedString(k)
+		case bool:
+			if k {
+				b.buf = append(b.buf, `"true"`...)
+			} else {
+				b.buf = append(b.buf, `"false"`...)
+			}
+		case int32, int64:
+			b.buf = append(b.buf, '"')
+			b.writeInt64(kv.key.Int())
+			b.buf = append(b.buf, '"')
+		case uint32, uint64:
+			b.buf = append(b.buf, '"')
+			b.writeUint64(kv.key.Uint())
+			b.buf = append(b.buf, '"')
+		}
+		b.writeByte(':')
+
+		if err := marshalProtoreflectValue(kv.val, inst.fd.MapValue(), b, opts); err != nil {
+			return err
+		}
+	}
+	b.writeByte('}')
+	return nil
+}
+
+func formatTimestamp(secs int64, nanos int32) string {
+	t := time.Unix(secs, int64(nanos)).UTC()
+	base := t.Format("2006-01-02T15:04:05")
+	if nanos == 0 {
+		return base + "Z"
+	}
+	if nanos%1000000 == 0 {
+		return fmt.Sprintf("%s.%03dZ", base, nanos/1000000)
+	}
+	if nanos%1000 == 0 {
+		return fmt.Sprintf("%s.%06dZ", base, nanos/1000)
+	}
+	return fmt.Sprintf("%s.%09dZ", base, nanos)
 }

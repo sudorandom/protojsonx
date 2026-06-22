@@ -50,10 +50,11 @@ func TestUnmarshalRejectsUnknownEnumName(t *testing.T) {
 	require.Error(t, err, "expected unknown enum error")
 }
 
-func TestUnmarshalRejectsQuotedRegularFloat(t *testing.T) {
+func TestUnmarshalAcceptsQuotedRegularFloat(t *testing.T) {
 	var out testpb.ComplexMessage
 	err := Unmarshal([]byte(`{"doubleField":"1.25"}`), &out)
-	require.Error(t, err, "expected quoted non-special float error")
+	require.NoError(t, err)
+	assert.Equal(t, 1.25, out.DoubleField)
 }
 
 func TestUnmarshalRejectsInvalidKnownFieldNumbers(t *testing.T) {
@@ -152,14 +153,14 @@ func TestUnmarshalNullMessages(t *testing.T) {
 func TestDurationPrecision(t *testing.T) {
 	msg := &testpb.ComplexMessage{
 		DurationField: &durationpb.Duration{
-			Seconds: 9007199254740991,
+			Seconds: 315575999999,
 			Nanos:   123456789,
 		},
 	}
 
 	data, err := Marshal(msg)
 	require.NoError(t, err)
-	assert.Contains(t, string(data), `"9007199254740991.123456789s"`)
+	assert.Contains(t, string(data), `"315575999999.123456789s"`)
 
 	var out testpb.ComplexMessage
 	err = Unmarshal(data, &out)

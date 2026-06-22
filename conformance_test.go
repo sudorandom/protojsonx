@@ -106,5 +106,7 @@ func assertConformanceParity(t *testing.T, msg proto.Message) {
 	out := reflect.New(reflect.TypeOf(msg).Elem()).Interface().(proto.Message)
 	err = Unmarshal(stdData, out)
 	require.NoError(t, err)
-	assert.True(t, proto.Equal(msg, out), "unmarshal roundtrip mismatch")
+	if !proto.Equal(msg, out) {
+		t.Errorf("unmarshal roundtrip mismatch:\nExpected: %v\nActual:   %v", msg, out)
+	}
 }

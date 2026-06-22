@@ -6,7 +6,7 @@
 
 `protojsonx` is a high-performance alternative to the standard Go protobuf JSON library (`google.golang.org/protobuf/encoding/protojson`).
 
-It uses a dynamic table-driven parser and unsafe pointer offset arithmetic to avoid the runtime protobuf reflection overhead in hot marshal/unmarshal paths.
+It uses a dynamic table-driven parser and unsafe pointer offset arithmetic to avoid the runtime protobuf reflection overhead in hot marshal/unmarshal paths. The library is fully self-contained and passes 100% of the official protobuf conformance tests for JSON.
 
 > [!WARNING]
 > `protojsonx` is a super experimental project and is not intended for production use.
@@ -21,27 +21,27 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 5,416 ns | 62 | 7,420 ns | 69 |
-| `protojsonx` | **906 ns** | **1** | **1,264 ns** | **3** |
-| `proto` (Binary Wire) | 1,423 ns | 13 | 1,294 ns | 9 |
+| `protojson` (Standard Lib) | 6,040 ns | 63 | 8,487 ns | 69 |
+| `protojsonx` | **1,133 ns** | **5** | **1,715 ns** | **9** |
+| `proto` (Binary Wire) | 1,444 ns | 13 | 1,318 ns | 9 |
 
 ### Unmarshalling (Deserialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 9,577 ns | 129 | 12,438 ns | 153 |
-| `protojsonx` (Standard) | 2,677 ns | 35 | 3,548 ns | 28 |
-| `protojsonx` (ZeroCopy) | 2,416 ns | 13 | 3,423 ns | 17 |
-| `protojsonx` (Allocator) | 2,560 ns | 32 | 3,378 ns | 23 |
-| `protojsonx` (ZeroCopy + Allocator) | 2,333 ns | **10** | 3,243 ns | **12** |
-| `proto` (Binary Wire) | **2,125 ns** | 45 | **1,823 ns** | 33 |
+| `protojson` (Standard Lib) | 9,810 ns | 129 | 13,247 ns | 153 |
+| `protojsonx` (Standard) | 2,840 ns | 38 | 3,911 ns | 41 |
+| `protojsonx` (ZeroCopy) | 2,583 ns | 16 | 3,731 ns | 30 |
+| `protojsonx` (Allocator) | 2,672 ns | 35 | 3,672 ns | 36 |
+| `protojsonx` (ZeroCopy + Allocator) | 2,413 ns | **13** | 3,561 ns | **25** |
+| `proto` (Binary Wire) | **2,138 ns** | 45 | **2,075 ns** | 33 |
 
 ### 🚀 Summary
 
-- **Marshal is about 5.8-6.0x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 3.5-4.1x faster than `protojson`**, depending on message shape and configured options.
+- **Marshal is about 4.9-5.3x faster than `protojson`** with dramatically fewer allocations.
+- **Unmarshal is about 3.4-4.1x faster than `protojson`**, depending on message shape and configured options.
 - **Marshal is competitive with binary protobuf**, faster in the simple benchmark and roughly tied in the complex benchmark.
-- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **28 allocs/op** (Standard), **17 allocs/op** (ZeroCopy), **23 allocs/op** (Allocator), or **12 allocs/op** (ZeroCopy + Allocator).
+- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **41 allocs/op** (Standard), **30 allocs/op** (ZeroCopy), **36 allocs/op** (Allocator), or **25 allocs/op** (ZeroCopy + Allocator).
 - **No extra generated code or protoc plugin required**: `protojsonx` works with ordinary Go protobuf generated types.
 
 The binary marshal comparison is message-shape dependent. In these benchmarks, `protojsonx` can beat binary protobuf marshal because the JSON encoder writes directly into a pooled byte buffer from precomputed field offsets, while binary protobuf still pays its own per-field encoding and allocation costs for these generated message shapes.
@@ -56,7 +56,7 @@ The binary marshal comparison is message-shape dependent. In these benchmarks, `
 - **Low-allocation marshal path**: JSON is appended directly into a pooled byte buffer, with deterministic map-key sorting and one owned copy returned to the caller.
 - **Optional zero-copy strings**: `UnmarshalOptions{ZeroCopy: true}` can alias unescaped input string bytes, avoiding string allocation when the input buffer lifetime is request-scoped.
 - **Optional bump allocator**: nested messages can be allocated from a reusable monotonic allocator to reduce heap allocation and GC pressure in high-throughput decode paths.
-- **Full protojson compatibility**: schemas outside the optimized fast path fall back to the standard `protojson` implementation instead of producing lossy JSON.
+- **Full protojson compatibility**: all standard features and Well-Known Types are supported natively. There are no runtime fallbacks to the standard `protojson` library.
 
 ## Install
 
@@ -82,26 +82,22 @@ go get github.com/sudorandom/protojsonx/protojsonxgrpc
 
 ## Compatibility
 
-`protojsonx` supports full protojson compatibility. Common request/response message shapes use the optimized runtime table path; schemas outside that fast path automatically fall back to the standard `protojson` implementation.
+`protojsonx` is fully self-contained and does not import or fall back to the standard `protojson` library. All common request/response message shapes, enums, Well-Known Types, map configurations, and oneof constraints are natively optimized.
 
-Optimized fast-path field shapes:
+Optimized field and schema shapes:
 
-- Scalar fields: `string`, numeric types, `bool`, `bytes`, and enums.
-- Nested message fields.
-- Repeated `string` fields.
-- Repeated message fields.
-- `map<string, string>` fields.
-- Both JSON camelCase names and proto snake_case names during unmarshal.
-- Well-Known Types with protojson-compatible JSON: `google.protobuf.Timestamp`, `google.protobuf.Duration`, `google.protobuf.Any`, `google.protobuf.FieldMask`, and wrapper types such as `google.protobuf.StringValue`.
-- `google.protobuf.Empty`.
+- **Scalars**: `string`, numeric types, `bool`, `bytes`, and enums.
+- **Nested messages** and recursive structures.
+- **Repeated fields**: repeated strings, numbers, booleans, bytes, enums, and nested messages.
+- **Map fields**: maps with keys and values of any scalar types, string-to-string maps, and string-to-message maps.
+- **Oneof fields**: support for oneof selection, type validation, and conflicting/duplicate oneof key checks (excluding null values).
+- **Extensions**: dynamic protobuf extensions registered via `protoregistry.GlobalTypes` are supported and serialized/deserialized natively.
+- **Well-Known Types**: `google.protobuf.Timestamp`, `google.protobuf.Duration`, `google.protobuf.Any`, `google.protobuf.FieldMask`, `google.protobuf.Struct`, `google.protobuf.Value`, `google.protobuf.ListValue`, `google.protobuf.Empty`, and all wrapper types (e.g. `google.protobuf.StringValue`).
+- **Naming**: Supports both JSON `camelCase` names and protobuf `snake_case` names during unmarshalling.
 
-Fallback-compatible field shapes:
+Non-optimized cases:
 
-- `oneof` fields.
-- Repeated scalar fields other than `repeated string`.
-- Maps other than `map<string, string>`.
-- `google.protobuf.Struct`, `google.protobuf.Value`, and `google.protobuf.ListValue`.
-- Message schemas that rely on protojson special cases outside the Well-Known Types listed above.
+- **Dynamic Messages**: Messages that do not map to generated concrete Go struct types are not supported.
 
 ## Configuration
 

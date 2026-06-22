@@ -53,6 +53,13 @@ const (
 	TypeStringValue
 	TypeBytesValue
 	TypeEmpty
+	TypeFieldMask
+	TypeStruct
+	TypeValue
+	TypeListValue
+	TypeAny
+	TypeOneofField
+	TypeMapField
 	TypeRepeatedString
 	TypeRepeatedMessage
 	TypeMapStringString
@@ -88,16 +95,25 @@ type fieldInstruction struct {
 	secondsOffset uintptr
 	nanosOffset   uintptr
 	valueOffset   uintptr
+
+	// Oneof helper
+	fd protoreflect.FieldDescriptor
+
+	// Optional primitive helper
+	isOptional bool
+	goPointer  bool
 }
 
 type MessageTable struct {
-	goType       reflect.Type
-	fields       []fieldInstruction
-	fieldMap     map[string]*fieldInstruction
-	useProtojson bool
-	ready        chan struct{}
-	done         atomic.Bool
-	err          error
+	goType             reflect.Type
+	fullName           protoreflect.FullName
+	fields             []fieldInstruction
+	fieldMap           map[string]*fieldInstruction
+	useProtojson       bool
+	hasExtensionRanges bool
+	ready              chan struct{}
+	done               atomic.Bool
+	err                error
 }
 
 func (table *MessageTable) wait() error {
@@ -196,6 +212,8 @@ func getTable(msg proto.Message) (*MessageTable, error) {
 		table.fields = fullTable.fields
 		table.fieldMap = fullTable.fieldMap
 		table.useProtojson = fullTable.useProtojson
+		table.hasExtensionRanges = fullTable.hasExtensionRanges
+		table.fullName = fullTable.fullName
 	}
 	table.err = err
 	table.done.Store(true)
@@ -218,9 +236,11 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 	}
 
 	table := &MessageTable{
-		goType:   goType,
-		fieldMap: make(map[string]*fieldInstruction),
-		ready:    make(chan struct{}),
+		goType:             goType,
+		fieldMap:           make(map[string]*fieldInstruction),
+		fullName:           desc.FullName(),
+		hasExtensionRanges: desc.ExtensionRanges().Len() > 0,
+		ready:              make(chan struct{}),
 	}
 	close(table.ready)
 
@@ -243,17 +263,43 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 	fieldsDesc := desc.Fields()
 	for i := 0; i < fieldsDesc.Len(); i++ {
 		fd := fieldsDesc.Get(i)
+		var inst fieldInstruction
 		sf, ok := fieldNumToStructField[fd.Number()]
 		if !ok {
+			if fd.ContainingOneof() != nil {
+				inst = fieldInstruction{
+					ftype:     TypeOneofField,
+					jsonName:  fd.JSONName(),
+					protoName: string(fd.Name()),
+					index:     len(table.fields),
+					fd:        fd,
+				}
+				table.fields = append(table.fields, inst)
+				continue
+			}
 			table.useProtojson = true
 			return table, nil
 		}
 
-		inst := fieldInstruction{
-			offset:    sf.Offset,
-			jsonName:  fd.JSONName(),
-			protoName: string(fd.Name()),
-			index:     len(table.fields),
+		structType := sf.Type
+		isOptional := false
+		goPointer := false
+		if structType.Kind() == reflect.Pointer && fd.Kind() != protoreflect.MessageKind {
+			structType = structType.Elem()
+			isOptional = true
+			goPointer = true
+		} else if fd.Kind() == protoreflect.BytesKind {
+			isOptional = fd.HasPresence()
+		}
+
+		inst = fieldInstruction{
+			offset:     sf.Offset,
+			jsonName:   fd.JSONName(),
+			protoName:  string(fd.Name()),
+			index:      len(table.fields),
+			isOptional: isOptional,
+			goPointer:  goPointer,
+			elemType:   structType,
 		}
 
 		if fd.IsMap() {
@@ -262,8 +308,8 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 			if keyKind == protoreflect.StringKind && valKind == protoreflect.StringKind {
 				inst.ftype = TypeMapStringString
 			} else {
-				table.useProtojson = true
-				return table, nil
+				inst.ftype = TypeMapField
+				inst.fd = fd
 			}
 		} else if fd.IsList() {
 			if fd.Kind() == protoreflect.StringKind {
@@ -324,61 +370,61 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		} else {
 			switch fd.Kind() {
 			case protoreflect.StringKind:
-				if sf.Type.Kind() != reflect.String {
+				if structType.Kind() != reflect.String {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeString
 			case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-				if sf.Type.Kind() != reflect.Int32 {
+				if structType.Kind() != reflect.Int32 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeInt32
 			case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-				if sf.Type.Kind() != reflect.Int64 {
+				if structType.Kind() != reflect.Int64 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeInt64
 			case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-				if sf.Type.Kind() != reflect.Uint32 {
+				if structType.Kind() != reflect.Uint32 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeUint32
 			case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-				if sf.Type.Kind() != reflect.Uint64 {
+				if structType.Kind() != reflect.Uint64 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeUint64
 			case protoreflect.FloatKind:
-				if sf.Type.Kind() != reflect.Float32 {
+				if structType.Kind() != reflect.Float32 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeFloat32
 			case protoreflect.DoubleKind:
-				if sf.Type.Kind() != reflect.Float64 {
+				if structType.Kind() != reflect.Float64 {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeFloat64
 			case protoreflect.BoolKind:
-				if sf.Type.Kind() != reflect.Bool {
+				if structType.Kind() != reflect.Bool {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeBool
 			case protoreflect.BytesKind:
-				if sf.Type.Kind() != reflect.Slice {
+				if structType.Kind() != reflect.Slice {
 					table.useProtojson = true
 					return table, nil
 				}
 				inst.ftype = TypeBytes
 			case protoreflect.EnumKind:
-				if sf.Type.Kind() != reflect.Int32 {
+				if structType.Kind() != reflect.Int32 {
 					table.useProtojson = true
 					return table, nil
 				}
@@ -394,7 +440,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					inst.enumNameMap[num] = name
 					inst.enumValueMap[name] = num
 				}
-			case protoreflect.MessageKind:
+			case protoreflect.MessageKind, protoreflect.GroupKind:
 				fullName := fd.Message().FullName()
 				structType := sf.Type
 				if structType.Kind() == reflect.Pointer {
@@ -465,6 +511,16 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					}
 				case "google.protobuf.Empty":
 					inst.ftype = TypeEmpty
+				case "google.protobuf.FieldMask":
+					inst.ftype = TypeFieldMask
+				case "google.protobuf.Struct":
+					inst.ftype = TypeStruct
+				case "google.protobuf.Value":
+					inst.ftype = TypeValue
+				case "google.protobuf.ListValue":
+					inst.ftype = TypeListValue
+				case "google.protobuf.Any":
+					inst.ftype = TypeAny
 				default:
 					if isProtojsonCustomWellKnown(fullName) {
 						inst.ftype = TypeProtojsonWellKnown
@@ -519,6 +575,8 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 	if fullTable != nil {
 		table.fields = fullTable.fields
 		table.useProtojson = fullTable.useProtojson
+		table.hasExtensionRanges = fullTable.hasExtensionRanges
+		table.fullName = fullTable.fullName
 		for i := range table.fields {
 			inst := &table.fields[i]
 			table.fieldMap[inst.jsonName] = inst
@@ -531,4 +589,27 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 	cacheMutex.Unlock()
 
 	return table
+}
+
+func validateTimestamp(secs int64, nanos int32) error {
+	if secs < -62135596800 || secs > 253402300799 {
+		return fmt.Errorf("timestamp: seconds out of range %d", secs)
+	}
+	if nanos < 0 || nanos > 999999999 {
+		return fmt.Errorf("timestamp: nanos out of range %d", nanos)
+	}
+	return nil
+}
+
+func validateDuration(secs int64, nanos int32) error {
+	if secs < -315576000000 || secs > 315576000000 {
+		return fmt.Errorf("duration: seconds out of range %d", secs)
+	}
+	if nanos < -999999999 || nanos > 999999999 {
+		return fmt.Errorf("duration: nanos out of range %d", nanos)
+	}
+	if (secs < 0 && nanos > 0) || (secs > 0 && nanos < 0) {
+		return fmt.Errorf("duration: seconds and nanos must have the same sign")
+	}
+	return nil
 }
