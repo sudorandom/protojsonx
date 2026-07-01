@@ -55,17 +55,6 @@ func TestComprehensiveShapes(t *testing.T) {
 		assert.True(t, proto.Equal(msg, &tableOut), "protojsonx unmarshal of protojson output not equal to original")
 	})
 
-	t.Run("ZeroCopy Option", func(t *testing.T) {
-		data, err := Marshal(msg)
-		require.NoError(t, err)
-
-		var out testpb.ComplexMessage
-		err = UnmarshalOptions{ZeroCopy: true}.Unmarshal(data, &out)
-		require.NoError(t, err)
-
-		assert.True(t, proto.Equal(msg, &out), "ZeroCopy roundtrip not equal")
-	})
-
 	t.Run("EmitUnpopulated Option", func(t *testing.T) {
 		emptyMsg := &testpb.ComplexMessage{}
 
@@ -118,6 +107,97 @@ func TestRepeatedMessageNullElementRejects(t *testing.T) {
 	var out testpb.ComplexMessage
 	err := Unmarshal(data, &out)
 	require.Error(t, err)
+}
+
+func TestGeneratedMarshalMatchesRuntime(t *testing.T) {
+	tests := []struct {
+		name      string
+		runtime   func() ([]byte, error)
+		generated func() ([]byte, error)
+	}{
+		{
+			name: "user profile",
+			runtime: func() ([]byte, error) {
+				return Marshal(createUserProfile())
+			},
+			generated: func() ([]byte, error) {
+				return createUserProfile().MarshalProtoJSONX()
+			},
+		},
+		{
+			name: "complex message",
+			runtime: func() ([]byte, error) {
+				return Marshal(createBenchComplexMessage())
+			},
+			generated: func() ([]byte, error) {
+				return createBenchComplexMessage().MarshalProtoJSONX()
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			want, err := tt.runtime()
+			require.NoError(t, err)
+			got, err := tt.generated()
+			require.NoError(t, err)
+			assert.JSONEq(t, string(want), string(got))
+		})
+	}
+}
+
+func TestGeneratedUnmarshalMatchesRuntime(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  proto.Message
+		new  func() interface {
+			UnmarshalProtoJSONX([]byte) error
+			proto.Message
+		}
+	}{
+		{
+			name: "user profile",
+			msg:  createUserProfile(),
+			new: func() interface {
+				UnmarshalProtoJSONX([]byte) error
+				proto.Message
+			} {
+				return &testpb.UserProfile{}
+			},
+		},
+		{
+			name: "complex message",
+			msg:  createBenchComplexMessage(),
+			new: func() interface {
+				UnmarshalProtoJSONX([]byte) error
+				proto.Message
+			} {
+				return &testpb.ComplexMessage{}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := Marshal(tt.msg)
+			require.NoError(t, err)
+
+			var runtimeOut proto.Message
+			switch tt.msg.(type) {
+			case *testpb.UserProfile:
+				runtimeOut = &testpb.UserProfile{}
+			case *testpb.ComplexMessage:
+				runtimeOut = &testpb.ComplexMessage{}
+			default:
+				t.Fatalf("unsupported test message %T", tt.msg)
+			}
+			require.NoError(t, Unmarshal(data, runtimeOut))
+
+			generatedOut := tt.new()
+			require.NoError(t, generatedOut.UnmarshalProtoJSONX(data))
+			assert.True(t, proto.Equal(runtimeOut, generatedOut), "generated unmarshal result differs from runtime")
+		})
+	}
 }
 
 func TestConcurrentColdTableUse(t *testing.T) {

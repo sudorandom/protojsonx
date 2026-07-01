@@ -30,21 +30,20 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
 | `protojson` (Standard Lib) | 9,867 ns | 129 | 12,832 ns | 153 |
-| `protojsonx` (Standard) | 2,817 ns | 38 | 4,109 ns | 41 |
-| `protojsonx` (ZeroCopy) | 2,559 ns | 16 | 3,810 ns | 30 |
-| `protojsonx` (Allocator) | 2,688 ns | 35 | 3,839 ns | 36 |
-| `protojsonx` (ZeroCopy + Allocator) | 2,393 ns | **13** | 3,623 ns | **25** |
+| `protojsonx` | 2,817 ns | **38** | 4,109 ns | **41** |
 | `proto` (Binary Wire) | **2,249 ns** | 45 | **1,938 ns** | 33 |
 
 ### 🚀 Summary
 
 - **Marshal is about 5.4-6.5x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 3.3-4.1x faster than `protojson`**, depending on message shape and configured options.
+- **Unmarshal is about 3.1-3.5x faster than `protojson`**, depending on message shape.
 - **Marshal is competitive with binary protobuf**, faster in the simple benchmark and roughly tied in the complex benchmark.
-- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **41 allocs/op** (Standard), **30 allocs/op** (ZeroCopy), **36 allocs/op** (Allocator), or **25 allocs/op** (ZeroCopy + Allocator).
+- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **41 allocs/op** with `protojsonx`.
 - **No extra generated code or protoc plugin required**: `protojsonx` works with ordinary Go protobuf generated types.
 
 The binary marshal comparison is message-shape dependent. In these benchmarks, `protojsonx` can beat binary protobuf marshal because the JSON encoder writes directly into a pooled byte buffer from precomputed field offsets, while binary protobuf still pays its own per-field encoding and allocation costs for these generated message shapes.
+
+An optional code generation plugin is being explored for users who want a build-time fast path; see [docs/codegen-plugin.md](docs/codegen-plugin.md).
 
 ## How It Works
 
@@ -54,8 +53,6 @@ The binary marshal comparison is message-shape dependent. In these benchmarks, `
 - **Unsafe field access**: marshal and unmarshal read/write generated struct fields with precomputed `unsafe` offsets instead of reflective field lookup.
 - **Specialized JSON parser**: unmarshal uses a small parser tailored to the supported protojson field shapes. It validates skipped unknown JSON values, rejects duplicate known fields, handles `null` as the protobuf default, and parses known numeric tokens without routing every field through `encoding/json`.
 - **Low-allocation marshal path**: JSON is appended directly into a pooled byte buffer, with deterministic map-key sorting and one owned copy returned to the caller.
-- **Optional zero-copy strings**: `UnmarshalOptions{ZeroCopy: true}` can alias unescaped input string bytes, avoiding string allocation when the input buffer lifetime is request-scoped.
-- **Optional bump allocator**: nested messages can be allocated from a reusable monotonic allocator to reduce heap allocation and GC pressure in high-throughput decode paths.
 - **Full protojson compatibility**: all standard features and Well-Known Types are supported natively. There are no runtime fallbacks to the standard `protojson` library.
 
 ## Install
@@ -109,53 +106,6 @@ Non-optimized cases:
 ### UnmarshalOptions
 
 - `DiscardUnknown bool`: ignore unknown keys after validating their JSON value.
-- `ZeroCopy bool`: alias unescaped input string bytes directly as Go strings.
-- `Allocator Allocator`: a custom allocator to optimize allocation of nested submessage structures.
-
-### Allocator Configuration
-
-By default, Go's reflection API allocates nested submessages individually on the Go heap via `reflect.New`. In high-throughput pathways, this can lead to memory fragmentation and garbage collection pressure.
-
-`protojsonx` provides a built-in pointer-stable, thread-local monotonic `BumpAllocator` out of the box.
-
-#### Using the Built-in BumpAllocator
-
-To use the built-in allocator, instantiate it, pass it to `UnmarshalOptions`, and call `Reset()` on the allocator to reuse its underlying buffers across requests/cycles:
-
-```go
-// Create or reuse an allocator (not thread-safe; reuse per-goroutine or via a pool)
-alloc := protojsonx.NewBumpAllocator()
-
-// Reset allocator buffers from any previous runs
-alloc.Reset()
-
-var out MyMessage
-err := protojsonx.UnmarshalOptions{
-	Allocator: alloc,
-}.Unmarshal(data, &out)
-```
-
-> [!NOTE]
-> Ensure that the lifetime of the `BumpAllocator` matches or outlives the decoded message. Only call `Reset()` when you are completely finished using the decoded structure.
-
-#### Implementing a Custom Allocator
-
-If you want to plug in your own memory management strategy (such as integrating with Go's experimental `arena` package or CGO-based allocators), you can implement the `Allocator` interface:
-
-```go
-type Allocator interface {
-	New(t reflect.Type) reflect.Value
-}
-```
-
-
-### ZeroCopy Caveats
-
-When `ZeroCopy` is enabled, decoded string fields can point directly at the input JSON byte slice.
-
-1. The input byte slice stays live as long as any decoded string references it.
-2. Mutating or reusing the input buffer can mutate decoded strings.
-3. Use it only for short-lived request-scoped data where the input buffer lifetime is clear.
 
 ## ConnectRPC
 
@@ -176,7 +126,6 @@ func Handler() http.Handler {
 	codec := &protojsonxconnect.Codec{
 		UnmarshalOptions: protojsonx.UnmarshalOptions{
 			DiscardUnknown: true,
-			ZeroCopy:       true,
 		},
 	}
 
@@ -258,6 +207,12 @@ Build the protobuf conformance subprocess:
 
 ```sh
 just conformance-binary
+```
+
+Build the generated-plugin dispatch variant of the conformance subprocess:
+
+```sh
+just plugin-conformance-binary
 ```
 
 The generated binary at `.bin/protojsonx-conformance` speaks the official protobuf conformance runner protocol. Run it with the upstream `conformance_test_runner` from the Protocol Buffers source tree. The harness exercises JSON and protobuf input/output; text-format cases are reported as skipped because text format is outside `protojsonx`'s scope.

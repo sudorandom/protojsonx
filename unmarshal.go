@@ -11,9 +11,6 @@ package protojsonx
 // fields are rejected, null field values clear to the protobuf default, and a
 // successful decode clears fields that were omitted from reused target structs.
 //
-// ZeroCopy only applies to unescaped JSON strings. Escaped strings are decoded
-// into new byte slices because their in-memory bytes differ from the input.
-
 import (
 	"encoding/base64"
 	"encoding/json"
@@ -31,20 +28,11 @@ import (
 	"strings"
 )
 
-type Allocator interface {
-	New(t reflect.Type) reflect.Value
-}
-
 type UnmarshalOptions struct {
 	DiscardUnknown bool
-	ZeroCopy       bool
-	Allocator      Allocator
 }
 
-func allocate(t reflect.Type, opts UnmarshalOptions) reflect.Value {
-	if opts.Allocator != nil {
-		return opts.Allocator.New(t)
-	}
+func allocate(t reflect.Type, _ UnmarshalOptions) reflect.Value {
 	return reflect.New(t)
 }
 
@@ -1220,11 +1208,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		if err != nil {
 			return err
 		}
-		if opts.ZeroCopy {
-			*(*string)(targetPtr) = unsafeString(val)
-		} else {
-			*(*string)(targetPtr) = string(val)
-		}
+		*(*string)(targetPtr) = string(val)
 	case TypeInt32:
 		val, err := d.readInt32()
 		if err != nil {
@@ -1322,11 +1306,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			if opts.ZeroCopy {
-				*slicePtr = append(*slicePtr, unsafeString(val))
-			} else {
-				*slicePtr = append(*slicePtr, string(val))
-			}
+			*slicePtr = append(*slicePtr, string(val))
 			return nil
 		})
 	case TypeRepeatedInt32:
@@ -1463,15 +1443,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			var mk, mv string
-			if opts.ZeroCopy {
-				mk = unsafeString(mkey)
-				mv = unsafeString(val)
-			} else {
-				mk = string(mkey)
-				mv = string(val)
-			}
-			m[mk] = mv
+			m[string(mkey)] = string(val)
 			return nil
 		})
 	case TypeMessage:
@@ -1667,13 +1639,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			var val string
-			if opts.ZeroCopy {
-				val = unsafeString(s)
-			} else {
-				val = string(s)
-			}
-			*(*string)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			*(*string)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = string(s)
 			return nil
 		})
 		if err != nil {

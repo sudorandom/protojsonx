@@ -20,6 +20,11 @@ conformance-binary:
     mkdir -p ./.bin
     GOCACHE="{{justfile_directory()}}/.bin/go-build-cache" go build -o ./.bin/protojsonx-conformance ./internal/protojsonx-conformance
 
+# Build the conformance subprocess in generated-plugin dispatch mode.
+plugin-conformance-binary:
+    mkdir -p ./.bin
+    GOCACHE="{{justfile_directory()}}/.bin/go-build-cache" go build -ldflags "-X main.conformanceMode=plugin" -o ./.bin/protojsonx-plugin-conformance ./internal/protojsonx-conformance
+
 # Regenerate internal protobuf fixtures used by tests and benchmarks.
 generate-protos:
     buf generate --template buf.generate.yaml
