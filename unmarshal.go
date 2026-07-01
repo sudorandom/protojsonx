@@ -151,6 +151,9 @@ func unescapeUnicodeString(s []byte) ([]byte, error) {
 	if err := validateSurrogates(s); err != nil {
 		return nil, err
 	}
+	if len(s) > math.MaxInt-2 {
+		return nil, errors.New("string length exceeds maximum capacity")
+	}
 	quoted := make([]byte, 0, len(s)+2)
 	quoted = append(quoted, '"')
 	quoted = append(quoted, s...)
@@ -1870,6 +1873,9 @@ func unmarshalCustomWellKnown(msg proto.Message, d *decBuffer, opts UnmarshalOpt
 		if neg {
 			secs = -secs
 			nanos = -nanos
+		}
+		if nanos < math.MinInt32 || nanos > math.MaxInt32 {
+			return fmt.Errorf("duration: nanos out of range %d", nanos)
 		}
 		if err := validateDuration(secs, int32(nanos)); err != nil {
 			return err

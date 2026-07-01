@@ -254,7 +254,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		parts := strings.Split(tag, ",")
 		if len(parts) >= 2 {
 			numVal, err := strconv.Atoi(parts[1])
-			if err == nil {
+			if err == nil && numVal >= 1 && numVal <= 536870911 {
 				fieldNumToStructField[protoreflect.FieldNumber(numVal)] = f
 			}
 		}
