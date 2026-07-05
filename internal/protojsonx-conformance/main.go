@@ -20,6 +20,16 @@ import (
 	_ "google.golang.org/protobuf/types/known/emptypb"
 )
 
+var conformanceMode = "runtime"
+
+type generatedJSONMarshaler interface {
+	MarshalProtoJSONX() ([]byte, error)
+}
+
+type generatedJSONUnmarshaler interface {
+	UnmarshalProtoJSONX([]byte) error
+}
+
 func main() {
 	var sizeBuf [4]byte
 	inbuf := make([]byte, 0, 4096)
@@ -157,7 +167,7 @@ func unmarshalJSON(payload string, msg proto.Message, discardUnknown bool) error
 		}
 	}
 
-	if err := (protojsonx.UnmarshalOptions{DiscardUnknown: discardUnknown}).Unmarshal(data, msg); err != nil {
+	if err := unmarshalJSONData(data, msg, discardUnknown); err != nil {
 		return err
 	}
 	for _, path := range emptyAnyPaths {
@@ -166,8 +176,17 @@ func unmarshalJSON(payload string, msg proto.Message, discardUnknown bool) error
 	return nil
 }
 
+func unmarshalJSONData(data []byte, msg proto.Message, discardUnknown bool) error {
+	if conformanceMode == "plugin" && !discardUnknown {
+		if generated, ok := msg.(generatedJSONUnmarshaler); ok {
+			return generated.UnmarshalProtoJSONX(data)
+		}
+	}
+	return (protojsonx.UnmarshalOptions{DiscardUnknown: discardUnknown}).Unmarshal(data, msg)
+}
+
 func marshalJSON(msg proto.Message) ([]byte, error) {
-	out, err := protojsonx.Marshal(msg)
+	out, err := marshalJSONData(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +205,15 @@ func marshalJSON(msg proto.Message) ([]byte, error) {
 		return out, nil
 	}
 	return json.Marshal(sanitized)
+}
+
+func marshalJSONData(msg proto.Message) ([]byte, error) {
+	if conformanceMode == "plugin" {
+		if generated, ok := msg.(generatedJSONMarshaler); ok {
+			return generated.MarshalProtoJSONX()
+		}
+	}
+	return protojsonx.Marshal(msg)
 }
 
 type jsonFieldPath []protoreflect.FieldNumber

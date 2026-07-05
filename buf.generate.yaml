@@ -4,3 +4,7 @@ plugins:
     out: .
     opt:
       - module=github.com/sudorandom/protojsonx
+  - local: ["go", "run", "./cmd/protoc-gen-go-protojsonx"]
+    out: .
+    opt:
+      - module=github.com/sudorandom/protojsonx

@@ -138,6 +138,15 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 		return nil, errors.New("marshal target must be non-nil pointer")
 	}
 
+	if o == (MarshalOptions{}) {
+		if m, ok := msg.(interface {
+			ProtoJSONXFastPath()
+			MarshalProtoJSONX() ([]byte, error)
+		}); ok {
+			return m.MarshalProtoJSONX()
+		}
+	}
+
 	table, err := getTable(msg)
 	if err != nil {
 		return nil, err

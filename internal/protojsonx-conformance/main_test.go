@@ -119,6 +119,31 @@ func TestHandleEmitsConformanceEmptyAnyJSON(t *testing.T) {
 	assert.NotContains(t, out["optionalAny"], "value")
 }
 
+func TestPluginModeUsesGeneratedConformanceMethods(t *testing.T) {
+	oldMode := conformanceMode
+	conformanceMode = "plugin"
+	defer func() {
+		conformanceMode = oldMode
+	}()
+
+	var msg proto.Message = &conformance.TestAllTypesProto3{}
+	_, ok := msg.(generatedJSONMarshaler)
+	require.True(t, ok, "conformance TestAllTypesProto3 should have generated marshal method")
+	_, ok = msg.(generatedJSONUnmarshaler)
+	require.True(t, ok, "conformance TestAllTypesProto3 should have generated unmarshal method")
+
+	res := handle(&conformance.ConformanceRequest{
+		MessageType: "protobuf_test_messages.proto3.TestAllTypesProto3",
+		Payload: &conformance.ConformanceRequest_JsonPayload{
+			JsonPayload: `{"optionalInt32":123}`,
+		},
+		RequestedOutputFormat: conformance.WireFormat_JSON,
+	})
+	payload, ok := res.GetResult().(*conformance.ConformanceResponse_JsonPayload)
+	require.True(t, ok, "got %T", res.GetResult())
+	assert.JSONEq(t, `{"optionalInt32":123}`, payload.JsonPayload)
+}
+
 func TestHandleRejectsOverlongWireTag(t *testing.T) {
 	res := handle(&conformance.ConformanceRequest{
 		MessageType: "protobuf_test_messages.proto3.TestAllTypesProto3",

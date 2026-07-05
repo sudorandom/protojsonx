@@ -48,9 +48,6 @@ func FuzzUnmarshal(f *testing.F) {
 		var msg testpb.ComplexMessage
 		_ = Unmarshal(data, &msg)
 
-		var msgZC testpb.ComplexMessage
-		_ = UnmarshalOptions{ZeroCopy: true}.Unmarshal(data, &msgZC)
-
 		var addr testpb.Address
 		_ = Unmarshal(data, &addr)
 	})

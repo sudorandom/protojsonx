@@ -2,7 +2,6 @@ package protojsonx
 
 import (
 	"bytes"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -220,72 +219,6 @@ func TestAddressAndSessions(t *testing.T) {
 	assert.Equal(t, addr.City, out.City)
 }
 
-type trackingAllocator struct {
-	allocs int
-}
-
-func (ta *trackingAllocator) New(t reflect.Type) reflect.Value {
-	ta.allocs++
-	return reflect.New(t)
-}
-
-func TestCustomAllocator(t *testing.T) {
-	data := []byte(`{
-		"childField": {"name": "child", "value": 42},
-		"timestampField": "2026-06-21T08:30:00Z",
-		"durationField": "123.456s",
-		"repeatedMessage": [{"name": "item1", "value": 1}, {"name": "item2", "value": 2}]
-	}`)
-
-	alloc := &trackingAllocator{}
-	var out testpb.ComplexMessage
-	err := UnmarshalOptions{
-		Allocator: alloc,
-	}.Unmarshal(data, &out)
-	require.NoError(t, err)
-
-	// verify that allocations were routed through our allocator:
-	// - 1 for childField
-	// - 1 for timestampField
-	// - 1 for durationField
-	// - 2 for repeatedMessage elements
-	// Total: 5 allocations
-	assert.Equal(t, 5, alloc.allocs)
-
-	assert.Equal(t, "child", out.ChildField.Name)
-	assert.Equal(t, int32(42), out.ChildField.Value)
-	assert.Equal(t, int64(1782030600), out.TimestampField.Seconds)
-	assert.Equal(t, int32(0), out.TimestampField.Nanos)
-	assert.Equal(t, int64(123), out.DurationField.Seconds)
-	assert.Equal(t, int32(456000000), out.DurationField.Nanos)
-	require.Len(t, out.RepeatedMessage, 2)
-	assert.Equal(t, "item1", out.RepeatedMessage[0].Name)
-	assert.Equal(t, "item2", out.RepeatedMessage[1].Name)
-}
-
-func TestBumpAllocatorResetReturnsZeroedMemory(t *testing.T) {
-	alloc := NewBumpAllocator()
-
-	var first testpb.ComplexMessage
-	err := UnmarshalOptions{Allocator: alloc}.Unmarshal([]byte(`{
-		"childField": {"name": "stale", "value": 99},
-		"repeatedMessage": [{"name": "old", "value": 1}]
-	}`), &first)
-	require.NoError(t, err)
-
-	alloc.Reset()
-	var second testpb.ComplexMessage
-	err = UnmarshalOptions{Allocator: alloc}.Unmarshal([]byte(`{
-		"childField": {"name": "fresh"}
-	}`), &second)
-	require.NoError(t, err)
-
-	require.NotNil(t, second.ChildField)
-	assert.Equal(t, "fresh", second.ChildField.Name)
-	assert.Equal(t, int32(0), second.ChildField.Value)
-	assert.Nil(t, second.RepeatedMessage)
-}
-
 func TestUnmarshalWrappersObjectAndPrimitive(t *testing.T) {
 	t.Run("Primitive wrapper values", func(t *testing.T) {
 		jsonData := []byte(`{
@@ -377,4 +310,50 @@ func TestUnmarshalRecursionLimit(t *testing.T) {
 	err := UnmarshalOptions{DiscardUnknown: true}.Unmarshal(buf.Bytes(), &msg)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeded maximum recursion depth")
+}
+
+func TestFallbackOptimizations(t *testing.T) {
+	t.Run("synthetic oneof (optional fields)", func(t *testing.T) {
+		jsonData := []byte(`{
+			"optionalString": "hello",
+			"optionalInt32": null
+		}`)
+		var out testpb.CompatibilityMessage
+		err := Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+		assert.Nil(t, out.OptionalInt32)
+	})
+
+	t.Run("discard unknown on fast path", func(t *testing.T) {
+		jsonData := []byte(`{
+			"optionalString": "hello",
+			"unknownField": "skip me"
+		}`)
+		var out testpb.CompatibilityMessage
+		// Without DiscardUnknown, should fail
+		err := Unmarshal(jsonData, &out)
+		require.Error(t, err)
+
+		// With DiscardUnknown, should pass
+		err = UnmarshalOptions{DiscardUnknown: true}.Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+	})
+
+	t.Run("discard unknown on slow path (shuffled keys)", func(t *testing.T) {
+		jsonData := []byte(`{
+			"unknownField": "skip me",
+			"optionalString": "hello"
+		}`)
+		var out testpb.CompatibilityMessage
+		// Without DiscardUnknown, should fail
+		err := Unmarshal(jsonData, &out)
+		require.Error(t, err)
+
+		// With DiscardUnknown, should pass
+		err = UnmarshalOptions{DiscardUnknown: true}.Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+	})
 }

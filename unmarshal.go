@@ -11,9 +11,6 @@ package protojsonx
 // fields are rejected, null field values clear to the protobuf default, and a
 // successful decode clears fields that were omitted from reused target structs.
 //
-// ZeroCopy only applies to unescaped JSON strings. Escaped strings are decoded
-// into new byte slices because their in-memory bytes differ from the input.
-
 import (
 	"encoding/base64"
 	"encoding/json"
@@ -31,20 +28,11 @@ import (
 	"strings"
 )
 
-type Allocator interface {
-	New(t reflect.Type) reflect.Value
-}
-
 type UnmarshalOptions struct {
 	DiscardUnknown bool
-	ZeroCopy       bool
-	Allocator      Allocator
 }
 
-func allocate(t reflect.Type, opts UnmarshalOptions) reflect.Value {
-	if opts.Allocator != nil {
-		return opts.Allocator.New(t)
-	}
+func allocate(t reflect.Type, _ UnmarshalOptions) reflect.Value {
 	return reflect.New(t)
 }
 
@@ -719,6 +707,13 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 		return errors.New("unmarshal target must be non-nil pointer")
 	}
 
+	if u, ok := msg.(interface {
+		ProtoJSONXFastPath()
+		UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error
+	}); ok {
+		return u.UnmarshalProtoJSONXWithOptions(data, o.DiscardUnknown)
+	}
+
 	table, err := getTable(msg)
 	if err != nil {
 		return err
@@ -1220,11 +1215,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		if err != nil {
 			return err
 		}
-		if opts.ZeroCopy {
-			*(*string)(targetPtr) = unsafeString(val)
-		} else {
-			*(*string)(targetPtr) = string(val)
-		}
+		*(*string)(targetPtr) = string(val)
 	case TypeInt32:
 		val, err := d.readInt32()
 		if err != nil {
@@ -1322,11 +1313,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			if opts.ZeroCopy {
-				*slicePtr = append(*slicePtr, unsafeString(val))
-			} else {
-				*slicePtr = append(*slicePtr, string(val))
-			}
+			*slicePtr = append(*slicePtr, string(val))
 			return nil
 		})
 	case TypeRepeatedInt32:
@@ -1463,15 +1450,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			var mk, mv string
-			if opts.ZeroCopy {
-				mk = unsafeString(mkey)
-				mv = unsafeString(val)
-			} else {
-				mk = string(mkey)
-				mv = string(val)
-			}
-			m[mk] = mv
+			m[string(mkey)] = string(val)
 			return nil
 		})
 	case TypeMessage:
@@ -1667,13 +1646,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			var val string
-			if opts.ZeroCopy {
-				val = unsafeString(s)
-			} else {
-				val = string(s)
-			}
-			*(*string)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = val
+			*(*string)(unsafe.Add(*subMsgPtrPtr, inst.valueOffset)) = string(s)
 			return nil
 		})
 		if err != nil {
@@ -1899,94 +1872,100 @@ func unmarshalCustomWellKnown(msg proto.Message, d *decBuffer, opts UnmarshalOpt
 			pref.Clear(fd)
 			return nil
 		}
-		switch fullName {
-		case "google.protobuf.DoubleValue":
-			var val float64
-			var err error
-			d.skipWhitespace()
-			if d.off < len(d.data) && d.data[d.off] == '"' {
-				s, err := d.readStringBytes()
+		err := unmarshalCustomWellKnownWrapper(d, opts, func() error {
+			switch fullName {
+			case "google.protobuf.DoubleValue":
+				var val float64
+				var err error
+				d.skipWhitespace()
+				if d.off < len(d.data) && d.data[d.off] == '"' {
+					s, err := d.readStringBytes()
+					if err != nil {
+						return err
+					}
+					val, err = strconv.ParseFloat(string(s), 64)
+					if err != nil {
+						return err
+					}
+				} else {
+					val, err = d.readFloat64()
+					if err != nil {
+						return err
+					}
+				}
+				pref.Set(fd, protoreflect.ValueOfFloat64(val))
+			case "google.protobuf.FloatValue":
+				var val float32
+				var err error
+				d.skipWhitespace()
+				if d.off < len(d.data) && d.data[d.off] == '"' {
+					s, err := d.readStringBytes()
+					if err != nil {
+						return err
+					}
+					v, err := strconv.ParseFloat(string(s), 32)
+					if err != nil {
+						return err
+					}
+					val = float32(v)
+				} else {
+					val, err = d.readFloat32()
+					if err != nil {
+						return err
+					}
+				}
+				pref.Set(fd, protoreflect.ValueOfFloat64(float64(val)))
+			case "google.protobuf.Int64Value":
+				val, err := d.readInt64()
 				if err != nil {
 					return err
 				}
-				val, err = strconv.ParseFloat(string(s), 64)
+				pref.Set(fd, protoreflect.ValueOfInt64(val))
+			case "google.protobuf.UInt64Value":
+				val, err := d.readUint64()
 				if err != nil {
 					return err
 				}
-			} else {
-				val, err = d.readFloat64()
+				pref.Set(fd, protoreflect.ValueOfUint64(val))
+			case "google.protobuf.Int32Value":
+				val, err := d.readInt32()
 				if err != nil {
 					return err
 				}
-			}
-			pref.Set(fd, protoreflect.ValueOfFloat64(val))
-		case "google.protobuf.FloatValue":
-			var val float32
-			var err error
-			d.skipWhitespace()
-			if d.off < len(d.data) && d.data[d.off] == '"' {
-				s, err := d.readStringBytes()
+				pref.Set(fd, protoreflect.ValueOfInt32(val))
+			case "google.protobuf.UInt32Value":
+				val, err := d.readUint32()
 				if err != nil {
 					return err
 				}
-				v, err := strconv.ParseFloat(string(s), 32)
+				pref.Set(fd, protoreflect.ValueOfUint32(val))
+			case "google.protobuf.BoolValue":
+				val, err := d.readBool()
 				if err != nil {
 					return err
 				}
-				val = float32(v)
-			} else {
-				val, err = d.readFloat32()
+				pref.Set(fd, protoreflect.ValueOfBool(val))
+			case "google.protobuf.StringValue":
+				val, err := d.readStringBytes()
 				if err != nil {
 					return err
 				}
+				pref.Set(fd, protoreflect.ValueOfString(string(val)))
+			case "google.protobuf.BytesValue":
+				val, err := d.readStringBytes()
+				if err != nil {
+					return err
+				}
+				b, err := decodeBase64(string(val))
+				if err != nil {
+					return err
+				}
+				pref.Set(fd, protoreflect.ValueOfBytes(b))
 			}
-			pref.Set(fd, protoreflect.ValueOfFloat64(float64(val)))
-		case "google.protobuf.Int64Value":
-			val, err := d.readInt64()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfInt64(val))
-		case "google.protobuf.UInt64Value":
-			val, err := d.readUint64()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfUint64(val))
-		case "google.protobuf.Int32Value":
-			val, err := d.readInt32()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfInt32(val))
-		case "google.protobuf.UInt32Value":
-			val, err := d.readUint32()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfUint32(val))
-		case "google.protobuf.BoolValue":
-			val, err := d.readBool()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfBool(val))
-		case "google.protobuf.StringValue":
-			val, err := d.readStringBytes()
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfString(string(val)))
-		case "google.protobuf.BytesValue":
-			val, err := d.readStringBytes()
-			if err != nil {
-				return err
-			}
-			b, err := decodeBase64(string(val))
-			if err != nil {
-				return err
-			}
-			pref.Set(fd, protoreflect.ValueOfBytes(b))
+			return nil
+		})
+		if err != nil {
+			return err
 		}
 		return nil
 	case "google.protobuf.FieldMask":
@@ -2600,4 +2579,20 @@ func unmarshalExtensionField(pref protoreflect.Message, xt protoreflect.Extensio
 	}
 	pref.Set(fd, val)
 	return nil
+}
+
+func unmarshalCustomWellKnownWrapper(d *decBuffer, opts UnmarshalOptions, readVal func() error) error {
+	d.skipWhitespace()
+	if d.isObject() {
+		return d.parseObject(func(key []byte) error {
+			if string(key) == "value" {
+				return readVal()
+			}
+			if opts.DiscardUnknown {
+				return d.skipValue()
+			}
+			return fmt.Errorf("unknown field in wrapper: %s", string(key))
+		})
+	}
+	return readVal()
 }
