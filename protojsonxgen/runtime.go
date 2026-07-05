@@ -1,6 +1,7 @@
 package protojsonxgen
 
 import (
+	"cmp"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,14 +19,20 @@ import (
 )
 
 var (
-	fallbackMarshal   func(proto.Message) ([]byte, error)
-	fallbackUnmarshal func([]byte, proto.Message) error
+	fallbackMarshal      func(proto.Message) ([]byte, error)
+	fallbackUnmarshal    func([]byte, proto.Message) error
+	fallbackUnmarshalOpt func([]byte, proto.Message, bool) error
 )
 
 // RegisterFallbacks connects generated code to the protojsonx runtime fallback.
-func RegisterFallbacks(marshal func(proto.Message) ([]byte, error), unmarshal func([]byte, proto.Message) error) {
+func RegisterFallbacks(
+	marshal func(proto.Message) ([]byte, error),
+	unmarshal func([]byte, proto.Message) error,
+	unmarshalOpt func([]byte, proto.Message, bool) error,
+) {
 	fallbackMarshal = marshal
 	fallbackUnmarshal = unmarshal
+	fallbackUnmarshalOpt = unmarshalOpt
 }
 
 func Marshal(m proto.Message) ([]byte, error) {
@@ -40,6 +47,30 @@ func Unmarshal(data []byte, m proto.Message) error {
 		return errors.New("protojsonx generated fallback is not registered")
 	}
 	return fallbackUnmarshal(data, m)
+}
+
+func UnmarshalWithOptions(data []byte, m proto.Message, discardUnknown bool) error {
+	if fallbackUnmarshalOpt == nil {
+		return errors.New("protojsonx generated fallback is not registered")
+	}
+	return fallbackUnmarshalOpt(data, m, discardUnknown)
+}
+
+func MarshalField(e *Encoder, m proto.Message) error {
+	bytes, err := Marshal(m)
+	if err != nil {
+		return err
+	}
+	e.buf = append(e.buf, bytes...)
+	return nil
+}
+
+func UnmarshalField(d *Decoder, m proto.Message, discardUnknown bool) error {
+	raw, err := d.ReadRawValue()
+	if err != nil {
+		return err
+	}
+	return UnmarshalWithOptions(raw, m, discardUnknown)
 }
 
 var encPool = sync.Pool{
@@ -622,6 +653,10 @@ func (d *Decoder) readSimpleInt64Token() (int64, bool, error) {
 		d.off = start
 		return 0, false, nil
 	}
+	if d.data[d.off] == '0' && d.off+1 < len(d.data) && d.data[d.off+1] >= '0' && d.data[d.off+1] <= '9' {
+		d.off = start
+		return 0, false, nil
+	}
 	var u uint64
 	for d.off < len(d.data) {
 		c := d.data[d.off]
@@ -654,6 +689,9 @@ func (d *Decoder) readSimpleInt64Token() (int64, bool, error) {
 func (d *Decoder) readSimpleUint64Token() (uint64, bool, error) {
 	start := d.off
 	if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
+		return 0, false, nil
+	}
+	if d.data[d.off] == '0' && d.off+1 < len(d.data) && d.data[d.off+1] >= '0' && d.data[d.off+1] <= '9' {
 		return 0, false, nil
 	}
 	var u uint64
@@ -1153,6 +1191,15 @@ func (d *Decoder) SkipValue() error {
 	}
 }
 
+func (d *Decoder) ReadRawValue() ([]byte, error) {
+	d.skipWhitespace()
+	start := d.off
+	if err := d.SkipValue(); err != nil {
+		return nil, err
+	}
+	return d.data[start:d.off], nil
+}
+
 func (d *Decoder) ReadTimestamp() (int64, int32, error) {
 	s, err := d.ReadStringBytes()
 	if err != nil {
@@ -1461,4 +1508,60 @@ func unsafeString(b []byte) string {
 		return ""
 	}
 	return unsafe.String(unsafe.SliceData(b), len(b))
+}
+
+func WriteMap[K comparable, V any](e *Encoder, m map[K]V, keyToString func(K) string, valEnc func(*Encoder, V) error) error {
+	if m == nil {
+		return nil
+	}
+	e.Byte('{')
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	keyStrings := make(map[K]string, len(m))
+	for _, k := range keys {
+		keyStrings[k] = keyToString(k)
+	}
+	slices.SortFunc(keys, func(a, b K) int {
+		return cmp.Compare(keyStrings[a], keyStrings[b])
+	})
+	for i, k := range keys {
+		if i > 0 {
+			e.Byte(',')
+		}
+		e.String(keyStrings[k])
+		e.Byte(':')
+		if err := valEnc(e, m[k]); err != nil {
+			return err
+		}
+	}
+	e.Byte('}')
+	return nil
+}
+
+func ReadMap[K comparable, V any](d *Decoder, m map[K]V, keyParse func(string) (K, error), valDec func(*Decoder) (V, error)) error {
+	if err := d.BeginObject(); err != nil {
+		return err
+	}
+	first := true
+	for {
+		keyStr, ok, err := d.NextObjectKey(&first)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		key, err := keyParse(keyStr)
+		if err != nil {
+			return err
+		}
+		val, err := valDec(d)
+		if err != nil {
+			return err
+		}
+		m[key] = val
+	}
+	return nil
 }

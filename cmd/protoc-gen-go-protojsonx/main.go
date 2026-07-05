@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -17,6 +18,7 @@ func main() {
 	}
 
 	opts.Run(func(gen *protogen.Plugin) error {
+		currentPlugin = gen
 		gen.SupportedFeatures = uint64(pluginpb.CodeGeneratorResponse_FEATURE_PROTO3_OPTIONAL)
 		for _, file := range gen.Files {
 			if file.Generate {
@@ -55,6 +57,11 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 		return
 	}
 
+	if supportsGeneratedMarshal(message) {
+		g.P("func (x *", message.GoIdent, ") ProtoJSONXFastPath() {}")
+		g.P()
+	}
+
 	g.P("func (x *", message.GoIdent, ") MarshalProtoJSONX() ([]byte, error) {")
 	if supportsGeneratedMarshal(message) {
 		g.P("e := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NewEncoder"}), "()")
@@ -68,6 +75,10 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 	g.P("}")
 	g.P()
 	g.P("func (x *", message.GoIdent, ") UnmarshalProtoJSONX(data []byte) error {")
+	g.P("return x.UnmarshalProtoJSONXWithOptions(data, false)")
+	g.P("}")
+	g.P()
+	g.P("func (x *", message.GoIdent, ") UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {")
 	if supportsGeneratedUnmarshal(message) {
 		decoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NewDecoder"})
 		g.P("d := ", decoderIdent, "(data)")
@@ -80,7 +91,7 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 			g.P("if peekErr != nil { return peekErr }")
 			g.P("if firstKey == ", strconvQuote(field0JSON), " || firstKey == \"\" {")
 			g.P("d.Reset(savedOff, savedDepth)")
-			g.P("if ok, err := x.unmarshalProtoJSONXFast(d); err != nil {")
+			g.P("if ok, err := x.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {")
 			g.P("return err")
 			g.P("} else if ok {")
 			g.P("return d.Finish()")
@@ -91,14 +102,14 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 		} else {
 			// No fields: fast path handles empty objects; just try it directly.
 			g.P("off, depth := d.Mark()")
-			g.P("if ok, err := x.unmarshalProtoJSONXFast(d); err != nil {")
+			g.P("if ok, err := x.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {")
 			g.P("return err")
 			g.P("} else if ok {")
 			g.P("return d.Finish()")
 			g.P("}")
 			g.P("d.Reset(off, depth)")
 		}
-		g.P("if err := x.unmarshalProtoJSONXFrom(d); err != nil {")
+		g.P("if err := x.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {")
 		g.P("return err")
 		g.P("}")
 		g.P("return d.Finish()")
@@ -126,7 +137,7 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 
 func generateMessageUnmarshalFast(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, message *protogen.Message) {
 	decoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"})
-	g.P("func (x *", message.GoIdent, ") unmarshalProtoJSONXFast(d *", decoderIdent, ") (bool, error) {")
+	g.P("func (x *", message.GoIdent, ") unmarshalProtoJSONXFast(d *", decoderIdent, ", discardUnknown bool) (bool, error) {")
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return false, err")
 	g.P("}")
@@ -164,18 +175,30 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 		g.P("if d.ReadNull() {")
 		g.P(access, " = nil")
 		g.P("} else {")
-		g.P("m := make(map[string]string)")
-		g.P("if err := d.BeginObject(); err != nil { return false, err }")
-		g.P("mapFirst := true")
-		g.P("for {")
-		g.P("k, mapOK, err := d.NextObjectKey(&mapFirst)")
-		g.P("if err != nil { return false, err }")
-		g.P("if !mapOK { break }")
-		g.P("v, err := d.ReadString()")
-		g.P("if err != nil { return false, err }")
-		g.P("m[k] = v")
-		g.P("}")
-		g.P(access, " = m")
+		keyKind := field.Desc.MapKey().Kind()
+		valKind := field.Desc.MapValue().Kind()
+		if keyKind == protoreflect.StringKind && valKind == protoreflect.StringKind {
+			g.P("m := make(map[string]string)")
+			g.P("if err := d.BeginObject(); err != nil { return false, err }")
+			g.P("mapFirst := true")
+			g.P("for {")
+			g.P("k, mapOK, err := d.NextObjectKey(&mapFirst)")
+			g.P("if err != nil { return false, err }")
+			g.P("if !mapOK { break }")
+			g.P("v, err := d.ReadString()")
+			g.P("if err != nil { return false, err }")
+			g.P("m[k] = v")
+			g.P("}")
+			g.P(access, " = m")
+		} else {
+			keyType := mapKeyGoType(keyKind)
+			valType := mapValueGoType(g, field)
+			g.P("m := make(map[", keyType, "]", valType, ")")
+			g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ReadMap"}), "(d, m,")
+			g.P(mapKeyParseExpr(g, keyKind), ",")
+			g.P(mapValueDecoderExpr(g, field.Desc.MapValue()), "); err != nil { return false, err }")
+			g.P(access, " = m")
+		}
 		g.P("}")
 		return
 	}
@@ -200,8 +223,22 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 		g.P("}")
 		return
 	}
+	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
+		g.P("if d.ReadNull() {")
+		g.P("x.", field.Oneof.GoName, " = nil")
+		g.P("} else {")
+		generateScalarOrMessageReadFast(g, helperPackage, field, "v", true)
+		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
+		g.P("}")
+		return
+	}
+	isProto3Optional := field.Oneof != nil && field.Oneof.Desc.IsSynthetic()
 	g.P("if d.ReadNull() {")
-	g.P(access, " = ", zeroValue(field))
+	if isProto3Optional {
+		g.P(access, " = nil")
+	} else {
+		g.P(access, " = ", zeroValue(field))
+	}
 	g.P("} else {")
 	generateScalarOrMessageReadFast(g, helperPackage, field, access, false)
 	g.P("}")
@@ -243,10 +280,14 @@ func generateScalarOrMessageReadFast(g *protogen.GeneratedFile, helperPackage pr
 	case protoreflect.EnumKind:
 		generateEnumUnmarshalFast(g, helperPackage, field, target, declare)
 	case protoreflect.MessageKind:
-		generateMessageUnmarshalFastField(g, field, target, declare)
+		generateMessageUnmarshalFastField(g, helperPackage, field, target, declare)
 	}
 	if !declare && field.Desc.Kind() != protoreflect.MessageKind && field.Desc.Kind() != protoreflect.EnumKind {
-		g.P(target, " = v")
+		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
+			g.P(target, " = &v")
+		} else {
+			g.P(target, " = v")
+		}
 	}
 }
 
@@ -274,11 +315,15 @@ func generateEnumUnmarshalFast(g *protogen.GeneratedFile, helperPackage protogen
 	g.P(readTarget, " = ", field.Enum.GoIdent, "(n)")
 	g.P("}")
 	if !declare {
-		g.P(target, " = ", readTarget)
+		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
+			g.P(target, " = &", readTarget)
+		} else {
+			g.P(target, " = ", readTarget)
+		}
 	}
 }
 
-func generateMessageUnmarshalFastField(g *protogen.GeneratedFile, field *protogen.Field, target string, declare bool) {
+func generateMessageUnmarshalFastField(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field, target string, declare bool) {
 	fullName := field.Message.Desc.FullName()
 	if fullName == "google.protobuf.Timestamp" || fullName == "google.protobuf.Duration" {
 		if declare {
@@ -298,10 +343,14 @@ func generateMessageUnmarshalFastField(g *protogen.GeneratedFile, field *protoge
 	} else {
 		g.P(target, " = &", field.Message.GoIdent, "{}")
 	}
-	g.P("if ok, err := ", target, ".unmarshalProtoJSONXFast(d); err != nil {")
+	g.P("if fast, ok := any(", target, ").(interface{ unmarshalProtoJSONXFast(*", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ", bool) (bool, error) }); ok {")
+	g.P("if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {")
 	g.P("return false, err")
 	g.P("} else if !ok {")
 	g.P("return false, nil")
+	g.P("}")
+	g.P("} else {")
+	g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnmarshalField"}), "(d, ", target, ", discardUnknown); err != nil { return false, err }")
 	g.P("}")
 }
 
@@ -323,19 +372,7 @@ func generateMessageUnmarshalFastField(g *protogen.GeneratedFile, field *protoge
 // 30+ fields are benchmarked and confirmed to improve.
 const mapDispatchThreshold = 32
 
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte(n%10) + '0'
-		n /= 10
-	}
-	return string(buf[i:])
-}
+
 
 // generateFieldIndexMap emits a package-level map[string]int that maps every
 // known JSON key (camelCase and proto snake_case) to its zero-based field
@@ -358,7 +395,7 @@ func generateFieldIndexMap(g *protogen.GeneratedFile, message *protogen.Message)
 
 func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, message *protogen.Message) {
 	decoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"})
-	g.P("func (x *", message.GoIdent, ") unmarshalProtoJSONXFrom(d *", decoderIdent, ") error {")
+	g.P("func (x *", message.GoIdent, ") unmarshalProtoJSONXFrom(d *", decoderIdent, ", discardUnknown bool) error {")
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -378,7 +415,14 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 		// emitted inline inside the switch so the compiler can optimise each
 		// case independently — no indirect calls, no *uint64 aliasing.
 		g.P("idx, hit := _", message.GoIdent.GoName, "FieldIndex[key]")
-		g.P("if !hit { return ", unknownField, "(key) }")
+		g.P("if !hit {")
+		g.P("if discardUnknown {")
+		g.P("if err := d.SkipValue(); err != nil { return err }")
+		g.P("continue")
+		g.P("} else {")
+		g.P("return ", unknownField, "(key)")
+		g.P("}")
+		g.P("}")
 		g.P("switch idx {")
 		for i, field := range message.Fields {
 			g.P("case ", i, ":")
@@ -406,7 +450,11 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 			g.P("continue")
 		}
 		g.P("default:")
+		g.P("if discardUnknown {")
+		g.P("if err := d.SkipValue(); err != nil { return err }")
+		g.P("} else {")
 		g.P("return ", unknownField, "(key)")
+		g.P("}")
 		g.P("}")
 	}
 	g.P("}")
@@ -445,46 +493,73 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 	if field.Desc.IsMap() {
 		g.P("if d.ReadNull() {")
 		g.P(access, " = nil")
-		g.P("return nil")
+		g.P("} else {")
+		keyKind := field.Desc.MapKey().Kind()
+		valKind := field.Desc.MapValue().Kind()
+		if keyKind == protoreflect.StringKind && valKind == protoreflect.StringKind {
+			g.P("m := make(map[string]string)")
+			g.P("if err := d.BeginObject(); err != nil {")
+			g.P("return err")
+			g.P("}")
+			g.P("mapFirst := true")
+			g.P("for {")
+			g.P("k, mapOK, err := d.NextObjectKey(&mapFirst)")
+			g.P("if err != nil {")
+			g.P("return err")
+			g.P("}")
+			g.P("if !mapOK {")
+			g.P("break")
+			g.P("}")
+			g.P("v, err := d.ReadString()")
+			g.P("if err != nil {")
+			g.P("return err")
+			g.P("}")
+			g.P("m[k] = v")
+			g.P("}")
+			g.P(access, " = m")
+		} else {
+			keyType := mapKeyGoType(keyKind)
+			valType := mapValueGoType(g, field)
+			g.P("m := make(map[", keyType, "]", valType, ")")
+			g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ReadMap"}), "(d, m,")
+			g.P(mapKeyParseExpr(g, keyKind), ",")
+			g.P(mapValueDecoderExpr(g, field.Desc.MapValue()), "); err != nil {")
+			g.P("return err")
+			g.P("}")
+			g.P(access, " = m")
+		}
 		g.P("}")
-		g.P("m := make(map[string]string)")
-		g.P("if err := d.BeginObject(); err != nil {")
-		g.P("return err")
-		g.P("}")
-		g.P("mapFirst := true")
-		g.P("for {")
-		g.P("k, mapOK, err := d.NextObjectKey(&mapFirst)")
-		g.P("if err != nil {")
-		g.P("return err")
-		g.P("}")
-		g.P("if !mapOK {")
-		g.P("break")
-		g.P("}")
-		g.P("v, err := d.ReadString()")
-		g.P("if err != nil {")
-		g.P("return err")
-		g.P("}")
-		g.P("m[k] = v")
-		g.P("}")
-		g.P(access, " = m")
 		return
 	}
 	if field.Desc.IsList() {
 		generateListUnmarshal(g, helperPackage, field, access)
 		return
 	}
+	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
+		g.P("if d.ReadNull() {")
+		g.P("x.", field.Oneof.GoName, " = nil")
+		g.P("} else {")
+		generateScalarOrMessageRead(g, helperPackage, field, "v", true)
+		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
+		g.P("}")
+		return
+	}
+	isProto3Optional := field.Oneof != nil && field.Oneof.Desc.IsSynthetic()
 	g.P("if d.ReadNull() {")
-	g.P(access, " = ", zeroValue(field))
-	g.P("return nil")
-	g.P("}")
+	if isProto3Optional {
+		g.P(access, " = nil")
+	} else {
+		g.P(access, " = ", zeroValue(field))
+	}
+	g.P("} else {")
 	generateScalarOrMessageRead(g, helperPackage, field, access, false)
+	g.P("}")
 }
 
 func generateListUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field, access string) {
 	g.P("if d.ReadNull() {")
 	g.P(access, " = nil")
-	g.P("return nil")
-	g.P("}")
+	g.P("} else {")
 	generateListValuesInit(g, field, access)
 	g.P("if err := d.BeginArray(); err != nil {")
 	g.P("return err")
@@ -507,6 +582,7 @@ func generateListUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 	g.P("values = append(values, v)")
 	g.P("}")
 	g.P(access, " = values")
+	g.P("}")
 }
 
 func generateListValuesInit(g *protogen.GeneratedFile, field *protogen.Field, access string) {
@@ -581,10 +657,14 @@ func generateScalarOrMessageRead(g *protogen.GeneratedFile, helperPackage protog
 	case protoreflect.EnumKind:
 		generateEnumUnmarshal(g, helperPackage, field, target, declare)
 	case protoreflect.MessageKind:
-		generateMessageUnmarshal(g, field, target, declare)
+		generateMessageUnmarshal(g, helperPackage, field, target, declare)
 	}
 	if !declare && field.Desc.Kind() != protoreflect.MessageKind && field.Desc.Kind() != protoreflect.EnumKind {
-		g.P(target, " = v")
+		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
+			g.P(target, " = &v")
+		} else {
+			g.P(target, " = v")
+		}
 	}
 }
 
@@ -612,11 +692,15 @@ func generateEnumUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 	g.P(readTarget, " = ", field.Enum.GoIdent, "(n)")
 	g.P("}")
 	if !declare {
-		g.P(target, " = ", readTarget)
+		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
+			g.P(target, " = &", readTarget)
+		} else {
+			g.P(target, " = ", readTarget)
+		}
 	}
 }
 
-func generateMessageUnmarshal(g *protogen.GeneratedFile, field *protogen.Field, target string, declare bool) {
+func generateMessageUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field, target string, declare bool) {
 	fullName := field.Message.Desc.FullName()
 	if fullName == "google.protobuf.Timestamp" || fullName == "google.protobuf.Duration" {
 		if declare {
@@ -636,8 +720,12 @@ func generateMessageUnmarshal(g *protogen.GeneratedFile, field *protogen.Field, 
 	} else {
 		g.P(target, " = &", field.Message.GoIdent, "{}")
 	}
-	g.P("if err := ", target, ".unmarshalProtoJSONXFrom(d); err != nil {")
+	g.P("if slow, ok := any(", target, ").(interface{ unmarshalProtoJSONXFrom(*", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ", bool) error }); ok {")
+	g.P("if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {")
 	g.P("return err")
+	g.P("}")
+	g.P("} else {")
+	g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnmarshalField"}), "(d, ", target, ", discardUnknown); err != nil { return err }")
 	g.P("}")
 }
 
@@ -672,13 +760,32 @@ func generateMessageMarshalTo(g *protogen.GeneratedFile, helperPackage protogen.
 }
 
 func generateFieldMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field) {
+	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
+		g.P("if w, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+		generateFieldMarshalBody(g, helperPackage, field, "w."+field.GoName, true)
+		g.P("}")
+		return
+	}
+	generateFieldMarshalBody(g, helperPackage, field, "x."+field.GoName, false)
+}
+
+func generateFieldMarshalBody(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field, access string, isOneof bool) {
 	name := field.Desc.JSONName()
-	access := "x." + field.GoName
 
 	if field.Desc.IsMap() {
 		g.P("if len(", access, ") > 0 {")
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.StringMap(", access, ")")
+		keyKind := field.Desc.MapKey().Kind()
+		valKind := field.Desc.MapValue().Kind()
+		if keyKind == protoreflect.StringKind && valKind == protoreflect.StringKind {
+			g.P("e.StringMap(", access, ")")
+		} else {
+			g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "WriteMap"}), "(e, ", access, ",")
+			g.P(mapKeyToStringExpr(g, keyKind), ",")
+			g.P(mapValueEncoderExpr(g, field.Desc.MapValue()), "); err != nil {")
+			g.P("return err")
+			g.P("}")
+		}
 		g.P("}")
 		return
 	}
@@ -688,59 +795,144 @@ func generateFieldMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoIm
 		return
 	}
 
+	isProto3Optional := field.Oneof != nil && field.Oneof.Desc.IsSynthetic()
+	valExpr := access
+	if isProto3Optional {
+		valExpr = "*" + access
+	}
+
 	switch field.Desc.Kind() {
 	case protoreflect.StringKind:
-		g.P("if ", access, " != \"\" {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != \"\" {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.String(", access, ")")
-		g.P("}")
+		g.P("e.String(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Int32(", access, ")")
-		g.P("}")
+		g.P("e.Int32(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Int64String(", access, ")")
-		g.P("}")
+		g.P("e.Int64String(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Uint32(", access, ")")
-		g.P("}")
+		g.P("e.Uint32(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Uint64String(", access, ")")
-		g.P("}")
+		g.P("e.Uint64String(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.FloatKind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Float32(", access, ")")
-		g.P("}")
+		g.P("e.Float32(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.DoubleKind:
-		g.P("if ", access, " != 0 {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " != 0 {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Float64(", access, ")")
-		g.P("}")
+		g.P("e.Float64(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.BoolKind:
-		g.P("if ", access, " {")
+		if !isOneof {
+			if isProto3Optional {
+				g.P("if ", access, " != nil {")
+			} else {
+				g.P("if ", access, " {")
+			}
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		g.P("e.Bool(", access, ")")
-		g.P("}")
+		g.P("e.Bool(", valExpr, ")")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.BytesKind:
-		g.P("if len(", access, ") > 0 {")
+		if !isOneof {
+			g.P("if len(", access, ") > 0 {")
+		}
 		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
 		g.P("e.BytesField(", access, ")")
-		g.P("}")
+		if !isOneof {
+			g.P("}")
+		}
 	case protoreflect.EnumKind:
-		g.P("if ", access, " != 0 {")
-		g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
-		generateEnumMarshal(g, field, access)
-		g.P("}")
+		if isProto3Optional {
+			g.P("if ", access, " != nil {")
+			g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
+			generateEnumMarshal(g, field, valExpr)
+			g.P("}")
+		} else {
+			if !isOneof {
+				g.P("if ", access, " != 0 {")
+			}
+			g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
+			generateEnumMarshal(g, field, valExpr)
+			if !isOneof {
+				g.P("}")
+			}
+		}
 	case protoreflect.MessageKind:
-		generateMessageFieldMarshal(g, field, access, name)
+		generateMessageFieldMarshal(g, helperPackage, field, access, name)
 	}
 }
 
@@ -785,7 +977,7 @@ func generateListMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImp
 	g.P("}")
 }
 
-func generateMessageFieldMarshal(g *protogen.GeneratedFile, field *protogen.Field, access, name string) {
+func generateMessageFieldMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field, access, name string) {
 	fullName := field.Message.Desc.FullName()
 	g.P("if ", access, " != nil {")
 	g.P("e.FieldPrefix(&wrote, ", strconvQuote(name), ")")
@@ -799,8 +991,10 @@ func generateMessageFieldMarshal(g *protogen.GeneratedFile, field *protogen.Fiel
 		g.P("return err")
 		g.P("}")
 	default:
-		g.P("if err := ", access, ".marshalProtoJSONXTo(e); err != nil {")
-		g.P("return err")
+		g.P("if fast, ok := any(", access, ").(interface{ marshalProtoJSONXTo(*", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Encoder"}), ") error }); ok {")
+		g.P("if err := fast.marshalProtoJSONXTo(e); err != nil { return err }")
+		g.P("} else {")
+		g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MarshalField"}), "(e, ", access, "); err != nil { return err }")
 		g.P("}")
 	}
 	g.P("}")
@@ -819,26 +1013,18 @@ func generateEnumMarshal(g *protogen.GeneratedFile, field *protogen.Field, value
 
 func supportsGeneratedMarshal(message *protogen.Message) bool {
 	for _, field := range message.Fields {
-		if field.Oneof != nil {
-			return false
-		}
 		if field.Desc.IsMap() {
-			if field.Desc.MapKey().Kind() != protoreflect.StringKind || field.Desc.MapValue().Kind() != protoreflect.StringKind {
+			keyKind := field.Desc.MapKey().Kind()
+			if keyKind != protoreflect.StringKind &&
+				keyKind != protoreflect.Int32Kind && keyKind != protoreflect.Int64Kind &&
+				keyKind != protoreflect.Uint32Kind && keyKind != protoreflect.Uint64Kind &&
+				keyKind != protoreflect.Sint32Kind && keyKind != protoreflect.Sint64Kind &&
+				keyKind != protoreflect.Fixed32Kind && keyKind != protoreflect.Fixed64Kind &&
+				keyKind != protoreflect.Sfixed32Kind && keyKind != protoreflect.Sfixed64Kind &&
+				keyKind != protoreflect.BoolKind {
 				return false
 			}
 			continue
-		}
-		if field.Desc.Kind() == protoreflect.MessageKind {
-			fullName := field.Message.Desc.FullName()
-			if fullName == "google.protobuf.Timestamp" || fullName == "google.protobuf.Duration" {
-				continue
-			}
-			if field.Message.GoIdent.GoImportPath != message.GoIdent.GoImportPath {
-				return false
-			}
-			if !supportsGeneratedMarshal(field.Message) {
-				return false
-			}
 		}
 	}
 	return true
@@ -867,4 +1053,262 @@ func strconvQuote(s string) string {
 	}
 	b = append(b, '"')
 	return string(b)
+}
+
+var currentPlugin *protogen.Plugin
+
+func resolveEnumGoIdent(desc protoreflect.EnumDescriptor) protogen.GoIdent {
+	if currentPlugin != nil {
+		for _, f := range currentPlugin.Files {
+			for _, e := range f.Enums {
+				if e.Desc.FullName() == desc.FullName() {
+					return e.GoIdent
+				}
+			}
+			var searchMessages func([]*protogen.Message) *protogen.Enum
+			searchMessages = func(messages []*protogen.Message) *protogen.Enum {
+				for _, m := range messages {
+					for _, e := range m.Enums {
+						if e.Desc.FullName() == desc.FullName() {
+							return e
+						}
+					}
+					if found := searchMessages(m.Messages); found != nil {
+						return found
+					}
+				}
+				return nil
+			}
+			if e := searchMessages(f.Messages); e != nil {
+				return e.GoIdent
+			}
+		}
+	}
+	return protogen.GoIdent{GoName: string(desc.Name())}
+}
+
+func resolveMessageGoIdent(desc protoreflect.MessageDescriptor) protogen.GoIdent {
+	if currentPlugin != nil {
+		for _, f := range currentPlugin.Files {
+			var searchMessages func([]*protogen.Message) *protogen.Message
+			searchMessages = func(messages []*protogen.Message) *protogen.Message {
+				for _, m := range messages {
+					if m.Desc.FullName() == desc.FullName() {
+						return m
+					}
+					if found := searchMessages(m.Messages); found != nil {
+						return found
+					}
+				}
+				return nil
+			}
+			if m := searchMessages(f.Messages); m != nil {
+				return m.GoIdent
+			}
+		}
+	}
+	return protogen.GoIdent{GoName: string(desc.Name())}
+}
+
+
+
+func mapValueGoType(g *protogen.GeneratedFile, field *protogen.Field) string {
+	valDesc := field.Desc.MapValue()
+	switch valDesc.Kind() {
+	case protoreflect.BoolKind:
+		return "bool"
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BytesKind:
+		return "[]byte"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	case protoreflect.FloatKind:
+		return "float32"
+	case protoreflect.DoubleKind:
+		return "float64"
+	case protoreflect.EnumKind:
+		ident := resolveEnumGoIdent(valDesc.Enum())
+		return g.QualifiedGoIdent(ident)
+	case protoreflect.MessageKind:
+		ident := resolveMessageGoIdent(valDesc.Message())
+		return "*" + g.QualifiedGoIdent(ident)
+	default:
+		return "any"
+	}
+}
+
+func mapKeyToStringExpr(g *protogen.GeneratedFile, keyKind protoreflect.Kind) string {
+	strconvFormatInt := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "FormatInt"})
+	strconvFormatUint := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "FormatUint"})
+	strconvFormatBool := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "FormatBool"})
+	switch keyKind {
+	case protoreflect.StringKind:
+		return "func(k string) string { return k }"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return fmt.Sprintf("func(k int32) string { return %s(int64(k), 10) }", strconvFormatInt)
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return fmt.Sprintf("func(k int64) string { return %s(k, 10) }", strconvFormatInt)
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return fmt.Sprintf("func(k uint32) string { return %s(uint64(k), 10) }", strconvFormatUint)
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return fmt.Sprintf("func(k uint64) string { return %s(k, 10) }", strconvFormatUint)
+	case protoreflect.BoolKind:
+		return fmt.Sprintf("func(k bool) string { return %s(k) }", strconvFormatBool)
+	default:
+		return "nil"
+	}
+}
+
+func mapValueEncoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDescriptor) string {
+	switch valDesc.Kind() {
+	case protoreflect.StringKind:
+		return "func(e *protojsonxgen.Encoder, v string) error { e.String(v); return nil }"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "func(e *protojsonxgen.Encoder, v int32) error { e.Int32(v); return nil }"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "func(e *protojsonxgen.Encoder, v int64) error { e.Int64String(v); return nil }"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "func(e *protojsonxgen.Encoder, v uint32) error { e.Uint32(v); return nil }"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "func(e *protojsonxgen.Encoder, v uint64) error { e.Uint64String(v); return nil }"
+	case protoreflect.FloatKind:
+		return "func(e *protojsonxgen.Encoder, v float32) error { e.Float32(v); return nil }"
+	case protoreflect.DoubleKind:
+		return "func(e *protojsonxgen.Encoder, v float64) error { e.Float64(v); return nil }"
+	case protoreflect.BoolKind:
+		return "func(e *protojsonxgen.Encoder, v bool) error { e.Bool(v); return nil }"
+	case protoreflect.BytesKind:
+		return "func(e *protojsonxgen.Encoder, v []byte) error { e.BytesField(v); return nil }"
+	case protoreflect.EnumKind:
+		enumIdent := resolveEnumGoIdent(valDesc.Enum())
+		enumType := g.QualifiedGoIdent(enumIdent)
+		// We generate a switch to map enum values to strings
+		switchBody := "switch v {\n"
+		for i := 0; i < valDesc.Enum().Values().Len(); i++ {
+			ev := valDesc.Enum().Values().Get(i)
+			switchBody += fmt.Sprintf("\t\tcase %s:\n\t\t\te.String(%s)\n", g.QualifiedGoIdent(protogen.GoIdent{
+				GoImportPath: enumIdent.GoImportPath,
+				GoName:       enumIdent.GoName + "_" + string(ev.Name()),
+			}), strconvQuote(string(ev.Name())))
+		}
+		switchBody += "\t\tdefault:\n\t\t\te.Int32(int32(v))\n\t\t}"
+		return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { %s; return nil }", enumType, switchBody)
+	case protoreflect.MessageKind:
+		msgFullName := valDesc.Message().FullName()
+		msgIdent := resolveMessageGoIdent(valDesc.Message())
+		msgType := "*" + g.QualifiedGoIdent(msgIdent)
+		switch msgFullName {
+		case "google.protobuf.Timestamp":
+			return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { if v == nil { e.Raw(\"null\"); return nil }; return e.Timestamp(v.GetSeconds(), v.GetNanos()) }", msgType)
+		case "google.protobuf.Duration":
+			return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { if v == nil { e.Raw(\"null\"); return nil }; return e.Duration(v.GetSeconds(), v.GetNanos()) }", msgType)
+		default:
+			return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { if v == nil { e.Raw(\"null\"); return nil }; if fast, ok := any(v).(interface{ marshalProtoJSONXTo(*protojsonxgen.Encoder) error }); ok { return fast.marshalProtoJSONXTo(e) } else { return protojsonxgen.MarshalField(e, v) } }", msgType)
+		}
+	}
+	return "nil"
+}
+
+func mapKeyGoType(keyKind protoreflect.Kind) string {
+	switch keyKind {
+	case protoreflect.StringKind:
+		return "string"
+	case protoreflect.BoolKind:
+		return "bool"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "int32"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "int64"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "uint32"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "uint64"
+	default:
+		return "string"
+	}
+}
+
+func mapKeyParseExpr(g *protogen.GeneratedFile, keyKind protoreflect.Kind) string {
+	strconvParseBool := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "ParseBool"})
+	strconvParseInt := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "ParseInt"})
+	strconvParseUint := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "strconv", GoName: "ParseUint"})
+	switch keyKind {
+	case protoreflect.StringKind:
+		return "func(s string) (string, error) { return s, nil }"
+	case protoreflect.BoolKind:
+		return strconvParseBool
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return fmt.Sprintf("func(s string) (int32, error) { val, err := %s(s, 10, 32); return int32(val), err }", strconvParseInt)
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return fmt.Sprintf("func(s string) (int64, error) { return %s(s, 10, 64) }", strconvParseInt)
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return fmt.Sprintf("func(s string) (uint32, error) { val, err := %s(s, 10, 32); return uint32(val), err }", strconvParseUint)
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return fmt.Sprintf("func(s string) (uint64, error) { return %s(s, 10, 64) }", strconvParseUint)
+	default:
+		return "nil"
+	}
+}
+
+func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDescriptor) string {
+	switch valDesc.Kind() {
+	case protoreflect.StringKind:
+		return "func(d *protojsonxgen.Decoder) (string, error) { return d.ReadString() }"
+	case protoreflect.Int32Kind, protoreflect.Sint32Kind, protoreflect.Sfixed32Kind:
+		return "func(d *protojsonxgen.Decoder) (int32, error) { return d.ReadInt32() }"
+	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
+		return "func(d *protojsonxgen.Decoder) (int64, error) { return d.ReadInt64() }"
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return "func(d *protojsonxgen.Decoder) (uint32, error) { return d.ReadUint32() }"
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return "func(d *protojsonxgen.Decoder) (uint64, error) { return d.ReadUint64() }"
+	case protoreflect.FloatKind:
+		return "func(d *protojsonxgen.Decoder) (float32, error) { return d.ReadFloat32() }"
+	case protoreflect.DoubleKind:
+		return "func(d *protojsonxgen.Decoder) (float64, error) { return d.ReadFloat64() }"
+	case protoreflect.BoolKind:
+		return "func(d *protojsonxgen.Decoder) (bool, error) { return d.ReadBool() }"
+	case protoreflect.BytesKind:
+		return "func(d *protojsonxgen.Decoder) ([]byte, error) { return d.ReadBytes() }"
+	case protoreflect.EnumKind:
+		enumIdent := resolveEnumGoIdent(valDesc.Enum())
+		enumType := g.QualifiedGoIdent(enumIdent)
+		matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: protogen.GoImportPath("github.com/sudorandom/protojsonx/protojsonxgen"), GoName: "MatchStringBytes"})
+		unknownEnumValue := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: protogen.GoImportPath("github.com/sudorandom/protojsonx/protojsonxgen"), GoName: "UnknownEnumValue"})
+		
+		body := "if d.IsString() {\n" +
+			"\t\t\ts, err := d.ReadStringBytes()\n" +
+			"\t\t\tif err != nil { return 0, err }\n"
+		for i := 0; i < valDesc.Enum().Values().Len(); i++ {
+			ev := valDesc.Enum().Values().Get(i)
+			body += fmt.Sprintf("\t\t\tif %s(s, %s) {\n\t\t\t\treturn %s, nil\n\t\t\t} else ", matchStringBytes, strconvQuote(string(ev.Name())), g.QualifiedGoIdent(protogen.GoIdent{
+				GoImportPath: enumIdent.GoImportPath,
+				GoName:       enumIdent.GoName + "_" + string(ev.Name()),
+			}))
+		}
+		body += "{\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
+		body += "\t\t} else {\n\t\t\tn, err := d.ReadInt32()\n\t\t\tif err != nil { return 0, err }\n\t\t\treturn " + enumType + "(n), nil\n\t\t}"
+		
+		return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) {\n\t\t%s\n\t\t}", enumType, body)
+	case protoreflect.MessageKind:
+		msgFullName := valDesc.Message().FullName()
+		msgIdent := resolveMessageGoIdent(valDesc.Message())
+		msgType := "*" + g.QualifiedGoIdent(msgIdent)
+		switch msgFullName {
+		case "google.protobuf.Timestamp":
+			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { secs, nanos, err := d.ReadTimestamp(); if err != nil { return nil, err }; return &%s{Seconds: secs, Nanos: nanos}, nil }", msgType, g.QualifiedGoIdent(msgIdent))
+		case "google.protobuf.Duration":
+			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { secs, nanos, err := d.ReadDuration(); if err != nil { return nil, err }; return &%s{Seconds: secs, Nanos: nanos}, nil }", msgType, g.QualifiedGoIdent(msgIdent))
+		default:
+			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { if d.ReadNull() { return nil, nil }; v := &%s{}; if fast, ok := any(v).(interface{ unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error) }); ok { if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil { return nil, err } else if !ok { if err := v.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil { return nil, err } } } else { if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil { return nil, err } }; return v, nil }", msgType, g.QualifiedGoIdent(msgIdent))
+		}
+	}
+	return "nil"
 }

@@ -14,6 +14,8 @@ import (
 // module= and import-path behavior as protoc-gen-go.
 const _ = "protojsonx generated scaffold 0.1.0"
 
+func (x *UserProfile) ProtoJSONXFastPath() {}
+
 func (x *UserProfile) MarshalProtoJSONX() ([]byte, error) {
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
@@ -23,6 +25,10 @@ func (x *UserProfile) MarshalProtoJSONX() ([]byte, error) {
 }
 
 func (x *UserProfile) UnmarshalProtoJSONX(data []byte) error {
+	return x.UnmarshalProtoJSONXWithOptions(data, false)
+}
+
+func (x *UserProfile) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
 	d := protojsonxgen.NewDecoder(data)
 	*x = UserProfile{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -31,7 +37,7 @@ func (x *UserProfile) UnmarshalProtoJSONX(data []byte) error {
 	}
 	if firstKey == "id" || firstKey == "" {
 		d.Reset(savedOff, savedDepth)
-		if ok, err := x.unmarshalProtoJSONXFast(d); err != nil {
+		if ok, err := x.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
 			return err
 		} else if ok {
 			return d.Finish()
@@ -39,7 +45,7 @@ func (x *UserProfile) UnmarshalProtoJSONX(data []byte) error {
 		*x = UserProfile{}
 	}
 	d.Reset(savedOff, savedDepth)
-	if err := x.unmarshalProtoJSONXFrom(d); err != nil {
+	if err := x.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
 		return err
 	}
 	return d.Finish()
@@ -100,8 +106,16 @@ func (x *UserProfile) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error {
 	}
 	if x.Address != nil {
 		e.FieldPrefix(&wrote, "address")
-		if err := x.Address.marshalProtoJSONXTo(e); err != nil {
-			return err
+		if fast, ok := any(x.Address).(interface {
+			marshalProtoJSONXTo(*protojsonxgen.Encoder) error
+		}); ok {
+			if err := fast.marshalProtoJSONXTo(e); err != nil {
+				return err
+			}
+		} else {
+			if err := protojsonxgen.MarshalField(e, x.Address); err != nil {
+				return err
+			}
 		}
 	}
 	if len(x.Sessions) > 0 {
@@ -123,7 +137,7 @@ func (x *UserProfile) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error {
 	return nil
 }
 
-func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, error) {
+func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnknown bool) (bool, error) {
 	if err := d.BeginObject(); err != nil {
 		return false, err
 	}
@@ -364,10 +378,18 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, e
 			x.Address = nil
 		} else {
 			x.Address = &Address{}
-			if ok, err := x.Address.unmarshalProtoJSONXFast(d); err != nil {
-				return false, err
-			} else if !ok {
-				return false, nil
+			if fast, ok := any(x.Address).(interface {
+				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+			}); ok {
+				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+					return false, err
+				} else if !ok {
+					return false, nil
+				}
+			} else {
+				if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
+					return false, err
+				}
 			}
 		}
 	}
@@ -405,10 +427,18 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, e
 					return false, protojsonxgen.NullRepeatedMessage()
 				}
 				v := &Session{}
-				if ok, err := v.unmarshalProtoJSONXFast(d); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
+				if fast, ok := any(v).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						return false, nil
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 				values = append(values, v)
 			}
@@ -425,7 +455,7 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, e
 	return true, nil
 }
 
-func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
+func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardUnknown bool) error {
 	if err := d.BeginObject(); err != nil {
 		return err
 	}
@@ -451,13 +481,13 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Id = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Id = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Id = v
 				continue
 			}
 		case 1:
@@ -470,13 +500,13 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Email = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Email = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Email = v
 				continue
 			}
 		case 2:
@@ -489,13 +519,13 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Name = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Name = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Name = v
 				continue
 			}
 		case 3:
@@ -508,13 +538,13 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Age = 0
-					return nil
+				} else {
+					v, err := d.ReadInt32()
+					if err != nil {
+						return err
+					}
+					x.Age = v
 				}
-				v, err := d.ReadInt32()
-				if err != nil {
-					return err
-				}
-				x.Age = v
 				continue
 			}
 		case 4:
@@ -527,13 +557,13 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.IsActive = false
-					return nil
+				} else {
+					v, err := d.ReadBool()
+					if err != nil {
+						return err
+					}
+					x.IsActive = v
 				}
-				v, err := d.ReadBool()
-				if err != nil {
-					return err
-				}
-				x.IsActive = v
 				continue
 			}
 		case 5:
@@ -546,8 +576,271 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Status = 0
-					return nil
+				} else {
+					var v UserStatus
+					if d.IsString() {
+						s, err := d.ReadStringBytes()
+						if err != nil {
+							return err
+						}
+						if protojsonxgen.MatchStringBytes(s, "STATUS_UNSPECIFIED") {
+							v = UserStatus_STATUS_UNSPECIFIED
+						} else if protojsonxgen.MatchStringBytes(s, "STATUS_ACTIVE") {
+							v = UserStatus_STATUS_ACTIVE
+						} else if protojsonxgen.MatchStringBytes(s, "STATUS_INACTIVE") {
+							v = UserStatus_STATUS_INACTIVE
+						} else if protojsonxgen.MatchStringBytes(s, "STATUS_SUSPENDED") {
+							v = UserStatus_STATUS_SUSPENDED
+						} else {
+							return protojsonxgen.UnknownEnumValue(string(s))
+						}
+					} else {
+						n, err := d.ReadInt32()
+						if err != nil {
+							return err
+						}
+						v = UserStatus(n)
+					}
+					x.Status = v
 				}
+				continue
+			}
+		case 6:
+			if key == "tags" {
+				expected = 7
+				const bit = uint64(1) << 6
+				if seen&bit != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seen |= bit
+				if d.ReadNull() {
+					x.Tags = nil
+				} else {
+					values := x.Tags[:0]
+					if values == nil {
+						values = make([]string, 0, 4)
+					}
+					if err := d.BeginArray(); err != nil {
+						return err
+					}
+					arrayFirst := true
+					for {
+						elemOK, err := d.NextArrayElement(&arrayFirst)
+						if err != nil {
+							return err
+						}
+						if !elemOK {
+							break
+						}
+						v, err := d.ReadString()
+						if err != nil {
+							return err
+						}
+						values = append(values, v)
+					}
+					x.Tags = values
+				}
+				continue
+			}
+		case 7:
+			if key == "metadata" {
+				expected = 8
+				const bit = uint64(1) << 7
+				if seen&bit != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seen |= bit
+				if d.ReadNull() {
+					x.Metadata = nil
+				} else {
+					m := make(map[string]string)
+					if err := d.BeginObject(); err != nil {
+						return err
+					}
+					mapFirst := true
+					for {
+						k, mapOK, err := d.NextObjectKey(&mapFirst)
+						if err != nil {
+							return err
+						}
+						if !mapOK {
+							break
+						}
+						v, err := d.ReadString()
+						if err != nil {
+							return err
+						}
+						m[k] = v
+					}
+					x.Metadata = m
+				}
+				continue
+			}
+		case 8:
+			if key == "address" {
+				expected = 9
+				const bit = uint64(1) << 8
+				if seen&bit != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seen |= bit
+				if d.ReadNull() {
+					x.Address = nil
+				} else {
+					x.Address = &Address{}
+					if slow, ok := any(x.Address).(interface {
+						unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+					}); ok {
+						if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+							return err
+						}
+					} else {
+						if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
+							return err
+						}
+					}
+				}
+				continue
+			}
+		case 9:
+			if key == "sessions" {
+				expected = 10
+				const bit = uint64(1) << 9
+				if seen&bit != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seen |= bit
+				if d.ReadNull() {
+					x.Sessions = nil
+				} else {
+					values := x.Sessions[:0]
+					if values == nil {
+						values = make([]*Session, 0, 4)
+					}
+					if err := d.BeginArray(); err != nil {
+						return err
+					}
+					arrayFirst := true
+					for {
+						elemOK, err := d.NextArrayElement(&arrayFirst)
+						if err != nil {
+							return err
+						}
+						if !elemOK {
+							break
+						}
+						if d.ReadNull() {
+							return protojsonxgen.NullRepeatedMessage()
+						}
+						v := &Session{}
+						if slow, ok := any(v).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+								return err
+							}
+						}
+						values = append(values, v)
+					}
+					x.Sessions = values
+				}
+				continue
+			}
+		}
+		switch key {
+		case "id":
+			const bit = uint64(1) << 0
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Id = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Id = v
+			}
+			continue
+		case "email":
+			const bit = uint64(1) << 1
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Email = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Email = v
+			}
+			continue
+		case "name":
+			const bit = uint64(1) << 2
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Name = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Name = v
+			}
+			continue
+		case "age":
+			const bit = uint64(1) << 3
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Age = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return err
+				}
+				x.Age = v
+			}
+			continue
+		case "isActive", "is_active":
+			const bit = uint64(1) << 4
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.IsActive = false
+			} else {
+				v, err := d.ReadBool()
+				if err != nil {
+					return err
+				}
+				x.IsActive = v
+			}
+			continue
+		case "status":
+			const bit = uint64(1) << 5
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Status = 0
+			} else {
 				var v UserStatus
 				if d.IsString() {
 					s, err := d.ReadStringBytes()
@@ -573,20 +866,17 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 					v = UserStatus(n)
 				}
 				x.Status = v
-				continue
 			}
-		case 6:
-			if key == "tags" {
-				expected = 7
-				const bit = uint64(1) << 6
-				if seen&bit != 0 {
-					return protojsonxgen.DuplicateField(key)
-				}
-				seen |= bit
-				if d.ReadNull() {
-					x.Tags = nil
-					return nil
-				}
+			continue
+		case "tags":
+			const bit = uint64(1) << 6
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Tags = nil
+			} else {
 				values := x.Tags[:0]
 				if values == nil {
 					values = make([]string, 0, 4)
@@ -610,20 +900,17 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 					values = append(values, v)
 				}
 				x.Tags = values
-				continue
 			}
-		case 7:
-			if key == "metadata" {
-				expected = 8
-				const bit = uint64(1) << 7
-				if seen&bit != 0 {
-					return protojsonxgen.DuplicateField(key)
-				}
-				seen |= bit
-				if d.ReadNull() {
-					x.Metadata = nil
-					return nil
-				}
+			continue
+		case "metadata":
+			const bit = uint64(1) << 7
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Metadata = nil
+			} else {
 				m := make(map[string]string)
 				if err := d.BeginObject(); err != nil {
 					return err
@@ -644,38 +931,40 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 					m[k] = v
 				}
 				x.Metadata = m
-				continue
 			}
-		case 8:
-			if key == "address" {
-				expected = 9
-				const bit = uint64(1) << 8
-				if seen&bit != 0 {
-					return protojsonxgen.DuplicateField(key)
-				}
-				seen |= bit
-				if d.ReadNull() {
-					x.Address = nil
-					return nil
-				}
+			continue
+		case "address":
+			const bit = uint64(1) << 8
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Address = nil
+			} else {
 				x.Address = &Address{}
-				if err := x.Address.unmarshalProtoJSONXFrom(d); err != nil {
-					return err
+				if slow, ok := any(x.Address).(interface {
+					unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+				}); ok {
+					if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+						return err
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
+						return err
+					}
 				}
-				continue
 			}
-		case 9:
-			if key == "sessions" {
-				expected = 10
-				const bit = uint64(1) << 9
-				if seen&bit != 0 {
-					return protojsonxgen.DuplicateField(key)
-				}
-				seen |= bit
-				if d.ReadNull() {
-					x.Sessions = nil
-					return nil
-				}
+			continue
+		case "sessions":
+			const bit = uint64(1) << 9
+			if seen&bit != 0 {
+				return protojsonxgen.DuplicateField(key)
+			}
+			seen |= bit
+			if d.ReadNull() {
+				x.Sessions = nil
+			} else {
 				values := x.Sessions[:0]
 				if values == nil {
 					values = make([]*Session, 0, 4)
@@ -696,254 +985,35 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 						return protojsonxgen.NullRepeatedMessage()
 					}
 					v := &Session{}
-					if err := v.unmarshalProtoJSONXFrom(d); err != nil {
-						return err
+					if slow, ok := any(v).(interface {
+						unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+					}); ok {
+						if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+							return err
+						}
+					} else {
+						if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+							return err
+						}
 					}
 					values = append(values, v)
 				}
 				x.Sessions = values
-				continue
 			}
-		}
-		switch key {
-		case "id":
-			const bit = uint64(1) << 0
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Id = ""
-				return nil
-			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Id = v
-			continue
-		case "email":
-			const bit = uint64(1) << 1
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Email = ""
-				return nil
-			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Email = v
-			continue
-		case "name":
-			const bit = uint64(1) << 2
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Name = ""
-				return nil
-			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Name = v
-			continue
-		case "age":
-			const bit = uint64(1) << 3
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Age = 0
-				return nil
-			}
-			v, err := d.ReadInt32()
-			if err != nil {
-				return err
-			}
-			x.Age = v
-			continue
-		case "isActive", "is_active":
-			const bit = uint64(1) << 4
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.IsActive = false
-				return nil
-			}
-			v, err := d.ReadBool()
-			if err != nil {
-				return err
-			}
-			x.IsActive = v
-			continue
-		case "status":
-			const bit = uint64(1) << 5
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Status = 0
-				return nil
-			}
-			var v UserStatus
-			if d.IsString() {
-				s, err := d.ReadStringBytes()
-				if err != nil {
-					return err
-				}
-				if protojsonxgen.MatchStringBytes(s, "STATUS_UNSPECIFIED") {
-					v = UserStatus_STATUS_UNSPECIFIED
-				} else if protojsonxgen.MatchStringBytes(s, "STATUS_ACTIVE") {
-					v = UserStatus_STATUS_ACTIVE
-				} else if protojsonxgen.MatchStringBytes(s, "STATUS_INACTIVE") {
-					v = UserStatus_STATUS_INACTIVE
-				} else if protojsonxgen.MatchStringBytes(s, "STATUS_SUSPENDED") {
-					v = UserStatus_STATUS_SUSPENDED
-				} else {
-					return protojsonxgen.UnknownEnumValue(string(s))
-				}
-			} else {
-				n, err := d.ReadInt32()
-				if err != nil {
-					return err
-				}
-				v = UserStatus(n)
-			}
-			x.Status = v
-			continue
-		case "tags":
-			const bit = uint64(1) << 6
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Tags = nil
-				return nil
-			}
-			values := x.Tags[:0]
-			if values == nil {
-				values = make([]string, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
-					return err
-				}
-				if !elemOK {
-					break
-				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				values = append(values, v)
-			}
-			x.Tags = values
-			continue
-		case "metadata":
-			const bit = uint64(1) << 7
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Metadata = nil
-				return nil
-			}
-			m := make(map[string]string)
-			if err := d.BeginObject(); err != nil {
-				return err
-			}
-			mapFirst := true
-			for {
-				k, mapOK, err := d.NextObjectKey(&mapFirst)
-				if err != nil {
-					return err
-				}
-				if !mapOK {
-					break
-				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				m[k] = v
-			}
-			x.Metadata = m
-			continue
-		case "address":
-			const bit = uint64(1) << 8
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Address = nil
-				return nil
-			}
-			x.Address = &Address{}
-			if err := x.Address.unmarshalProtoJSONXFrom(d); err != nil {
-				return err
-			}
-			continue
-		case "sessions":
-			const bit = uint64(1) << 9
-			if seen&bit != 0 {
-				return protojsonxgen.DuplicateField(key)
-			}
-			seen |= bit
-			if d.ReadNull() {
-				x.Sessions = nil
-				return nil
-			}
-			values := x.Sessions[:0]
-			if values == nil {
-				values = make([]*Session, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
-					return err
-				}
-				if !elemOK {
-					break
-				}
-				if d.ReadNull() {
-					return protojsonxgen.NullRepeatedMessage()
-				}
-				v := &Session{}
-				if err := v.unmarshalProtoJSONXFrom(d); err != nil {
-					return err
-				}
-				values = append(values, v)
-			}
-			x.Sessions = values
 			continue
 		default:
-			return protojsonxgen.UnknownField(key)
+			if discardUnknown {
+				if err := d.SkipValue(); err != nil {
+					return err
+				}
+			} else {
+				return protojsonxgen.UnknownField(key)
+			}
 		}
 	}
 }
+
+func (x *Address) ProtoJSONXFastPath() {}
 
 func (x *Address) MarshalProtoJSONX() ([]byte, error) {
 	e := protojsonxgen.NewEncoder()
@@ -954,6 +1024,10 @@ func (x *Address) MarshalProtoJSONX() ([]byte, error) {
 }
 
 func (x *Address) UnmarshalProtoJSONX(data []byte) error {
+	return x.UnmarshalProtoJSONXWithOptions(data, false)
+}
+
+func (x *Address) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
 	d := protojsonxgen.NewDecoder(data)
 	*x = Address{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -962,7 +1036,7 @@ func (x *Address) UnmarshalProtoJSONX(data []byte) error {
 	}
 	if firstKey == "street" || firstKey == "" {
 		d.Reset(savedOff, savedDepth)
-		if ok, err := x.unmarshalProtoJSONXFast(d); err != nil {
+		if ok, err := x.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
 			return err
 		} else if ok {
 			return d.Finish()
@@ -970,7 +1044,7 @@ func (x *Address) UnmarshalProtoJSONX(data []byte) error {
 		*x = Address{}
 	}
 	d.Reset(savedOff, savedDepth)
-	if err := x.unmarshalProtoJSONXFrom(d); err != nil {
+	if err := x.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
 		return err
 	}
 	return d.Finish()
@@ -1003,7 +1077,7 @@ func (x *Address) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error {
 	return nil
 }
 
-func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, error) {
+func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnknown bool) (bool, error) {
 	if err := d.BeginObject(); err != nil {
 		return false, err
 	}
@@ -1123,7 +1197,7 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, error
 	return true, nil
 }
 
-func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
+func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardUnknown bool) error {
 	if err := d.BeginObject(); err != nil {
 		return err
 	}
@@ -1149,13 +1223,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Street = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Street = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Street = v
 				continue
 			}
 		case 1:
@@ -1168,13 +1242,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.City = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.City = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.City = v
 				continue
 			}
 		case 2:
@@ -1187,13 +1261,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.State = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.State = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.State = v
 				continue
 			}
 		case 3:
@@ -1206,13 +1280,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Zip = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Zip = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Zip = v
 				continue
 			}
 		case 4:
@@ -1225,13 +1299,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.Country = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.Country = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.Country = v
 				continue
 			}
 		}
@@ -1244,13 +1318,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.Street = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Street = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Street = v
 			continue
 		case "city":
 			const bit = uint64(1) << 1
@@ -1260,13 +1334,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.City = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.City = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.City = v
 			continue
 		case "state":
 			const bit = uint64(1) << 2
@@ -1276,13 +1350,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.State = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.State = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.State = v
 			continue
 		case "zip":
 			const bit = uint64(1) << 3
@@ -1292,13 +1366,13 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.Zip = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Zip = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Zip = v
 			continue
 		case "country":
 			const bit = uint64(1) << 4
@@ -1308,19 +1382,27 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.Country = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.Country = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.Country = v
 			continue
 		default:
-			return protojsonxgen.UnknownField(key)
+			if discardUnknown {
+				if err := d.SkipValue(); err != nil {
+					return err
+				}
+			} else {
+				return protojsonxgen.UnknownField(key)
+			}
 		}
 	}
 }
+
+func (x *Session) ProtoJSONXFastPath() {}
 
 func (x *Session) MarshalProtoJSONX() ([]byte, error) {
 	e := protojsonxgen.NewEncoder()
@@ -1331,6 +1413,10 @@ func (x *Session) MarshalProtoJSONX() ([]byte, error) {
 }
 
 func (x *Session) UnmarshalProtoJSONX(data []byte) error {
+	return x.UnmarshalProtoJSONXWithOptions(data, false)
+}
+
+func (x *Session) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
 	d := protojsonxgen.NewDecoder(data)
 	*x = Session{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -1339,7 +1425,7 @@ func (x *Session) UnmarshalProtoJSONX(data []byte) error {
 	}
 	if firstKey == "sessionId" || firstKey == "" {
 		d.Reset(savedOff, savedDepth)
-		if ok, err := x.unmarshalProtoJSONXFast(d); err != nil {
+		if ok, err := x.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
 			return err
 		} else if ok {
 			return d.Finish()
@@ -1347,7 +1433,7 @@ func (x *Session) UnmarshalProtoJSONX(data []byte) error {
 		*x = Session{}
 	}
 	d.Reset(savedOff, savedDepth)
-	if err := x.unmarshalProtoJSONXFrom(d); err != nil {
+	if err := x.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
 		return err
 	}
 	return d.Finish()
@@ -1372,7 +1458,7 @@ func (x *Session) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error {
 	return nil
 }
 
-func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, error) {
+func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnknown bool) (bool, error) {
 	if err := d.BeginObject(); err != nil {
 		return false, err
 	}
@@ -1450,7 +1536,7 @@ func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder) (bool, error
 	return true, nil
 }
 
-func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
+func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardUnknown bool) error {
 	if err := d.BeginObject(); err != nil {
 		return err
 	}
@@ -1476,13 +1562,13 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.SessionId = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.SessionId = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.SessionId = v
 				continue
 			}
 		case 1:
@@ -1495,13 +1581,13 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.LoginTimestamp = 0
-					return nil
+				} else {
+					v, err := d.ReadInt64()
+					if err != nil {
+						return err
+					}
+					x.LoginTimestamp = v
 				}
-				v, err := d.ReadInt64()
-				if err != nil {
-					return err
-				}
-				x.LoginTimestamp = v
 				continue
 			}
 		case 2:
@@ -1514,13 +1600,13 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 				seen |= bit
 				if d.ReadNull() {
 					x.IpAddress = ""
-					return nil
+				} else {
+					v, err := d.ReadString()
+					if err != nil {
+						return err
+					}
+					x.IpAddress = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return err
-				}
-				x.IpAddress = v
 				continue
 			}
 		}
@@ -1533,13 +1619,13 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.SessionId = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.SessionId = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.SessionId = v
 			continue
 		case "loginTimestamp", "login_timestamp":
 			const bit = uint64(1) << 1
@@ -1549,13 +1635,13 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.LoginTimestamp = 0
-				return nil
+			} else {
+				v, err := d.ReadInt64()
+				if err != nil {
+					return err
+				}
+				x.LoginTimestamp = v
 			}
-			v, err := d.ReadInt64()
-			if err != nil {
-				return err
-			}
-			x.LoginTimestamp = v
 			continue
 		case "ipAddress", "ip_address":
 			const bit = uint64(1) << 2
@@ -1565,16 +1651,22 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder) error {
 			seen |= bit
 			if d.ReadNull() {
 				x.IpAddress = ""
-				return nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return err
+				}
+				x.IpAddress = v
 			}
-			v, err := d.ReadString()
-			if err != nil {
-				return err
-			}
-			x.IpAddress = v
 			continue
 		default:
-			return protojsonxgen.UnknownField(key)
+			if discardUnknown {
+				if err := d.SkipValue(); err != nil {
+					return err
+				}
+			} else {
+				return protojsonxgen.UnknownField(key)
+			}
 		}
 	}
 }

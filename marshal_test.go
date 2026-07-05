@@ -133,6 +133,15 @@ func TestGeneratedMarshalMatchesRuntime(t *testing.T) {
 				return createBenchComplexMessage().MarshalProtoJSONX()
 			},
 		},
+		{
+			name: "compatibility message",
+			runtime: func() ([]byte, error) {
+				return Marshal(createCompatibilityMessage())
+			},
+			generated: func() ([]byte, error) {
+				return createCompatibilityMessage().MarshalProtoJSONX()
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -175,6 +184,16 @@ func TestGeneratedUnmarshalMatchesRuntime(t *testing.T) {
 				return &testpb.ComplexMessage{}
 			},
 		},
+		{
+			name: "compatibility message",
+			msg:  createCompatibilityMessage(),
+			new: func() interface {
+				UnmarshalProtoJSONX([]byte) error
+				proto.Message
+			} {
+				return &testpb.CompatibilityMessage{}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -188,6 +207,8 @@ func TestGeneratedUnmarshalMatchesRuntime(t *testing.T) {
 				runtimeOut = &testpb.UserProfile{}
 			case *testpb.ComplexMessage:
 				runtimeOut = &testpb.ComplexMessage{}
+			case *testpb.CompatibilityMessage:
+				runtimeOut = &testpb.CompatibilityMessage{}
 			default:
 				t.Fatalf("unsupported test message %T", tt.msg)
 			}
@@ -231,5 +252,28 @@ func TestConcurrentColdTableUse(t *testing.T) {
 
 	for err := range errs {
 		require.NoError(t, err)
+	}
+}
+
+func createCompatibilityMessage() *testpb.CompatibilityMessage {
+	return &testpb.CompatibilityMessage{
+		Choice: &testpb.CompatibilityMessage_NameChoice{NameChoice: "my oneof choice"},
+		MapStringInt32: map[string]int32{
+			"key1": 100,
+			"key2": 200,
+		},
+		MapInt32String: map[int32]string{
+			1: "one",
+			2: "two",
+		},
+		MapStringMessage: map[string]*testpb.ChildMessage{
+			"nested": {
+				Name:  "child",
+				Value: 123,
+			},
+		},
+		RepeatedInt32: []int32{1, 2, 3},
+		OptionalString: proto.String("pointer string"),
+		OptionalInt32:  proto.Int32(42),
 	}
 }

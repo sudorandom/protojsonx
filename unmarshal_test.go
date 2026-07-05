@@ -311,3 +311,49 @@ func TestUnmarshalRecursionLimit(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeded maximum recursion depth")
 }
+
+func TestFallbackOptimizations(t *testing.T) {
+	t.Run("synthetic oneof (optional fields)", func(t *testing.T) {
+		jsonData := []byte(`{
+			"optionalString": "hello",
+			"optionalInt32": null
+		}`)
+		var out testpb.CompatibilityMessage
+		err := Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+		assert.Nil(t, out.OptionalInt32)
+	})
+
+	t.Run("discard unknown on fast path", func(t *testing.T) {
+		jsonData := []byte(`{
+			"optionalString": "hello",
+			"unknownField": "skip me"
+		}`)
+		var out testpb.CompatibilityMessage
+		// Without DiscardUnknown, should fail
+		err := Unmarshal(jsonData, &out)
+		require.Error(t, err)
+
+		// With DiscardUnknown, should pass
+		err = UnmarshalOptions{DiscardUnknown: true}.Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+	})
+
+	t.Run("discard unknown on slow path (shuffled keys)", func(t *testing.T) {
+		jsonData := []byte(`{
+			"unknownField": "skip me",
+			"optionalString": "hello"
+		}`)
+		var out testpb.CompatibilityMessage
+		// Without DiscardUnknown, should fail
+		err := Unmarshal(jsonData, &out)
+		require.Error(t, err)
+
+		// With DiscardUnknown, should pass
+		err = UnmarshalOptions{DiscardUnknown: true}.Unmarshal(jsonData, &out)
+		require.NoError(t, err)
+		assert.Equal(t, "hello", *out.OptionalString)
+	})
+}

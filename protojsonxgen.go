@@ -13,5 +13,8 @@ func init() {
 		func(data []byte, m proto.Message) error {
 			return Unmarshal(data, m)
 		},
+		func(data []byte, m proto.Message, discardUnknown bool) error {
+			return UnmarshalOptions{DiscardUnknown: discardUnknown}.Unmarshal(data, m)
+		},
 	)
 }
