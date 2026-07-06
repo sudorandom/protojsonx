@@ -273,7 +273,7 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		} else {
 			var v UserStatus
 			{
-				val, err := unmarshalEnum_UserStatus(d)
+				val, err := unmarshalEnum_UserStatus(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -549,7 +549,7 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardU
 			} else {
 				var v UserStatus
 				{
-					val, err := unmarshalEnum_UserStatus(d)
+					val, err := unmarshalEnum_UserStatus(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -1191,7 +1191,7 @@ func (x *Session) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardUnkno
 	}
 }
 
-func unmarshalEnum_UserStatus(d *protojsonxgen.Decoder) (UserStatus, error) {
+func unmarshalEnum_UserStatus(d *protojsonxgen.Decoder, discardUnknown bool) (UserStatus, error) {
 	var v UserStatus
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -1207,7 +1207,11 @@ func unmarshalEnum_UserStatus(d *protojsonxgen.Decoder) (UserStatus, error) {
 		} else if protojsonxgen.MatchStringBytes(s, "STATUS_SUSPENDED") {
 			v = UserStatus_STATUS_SUSPENDED
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()

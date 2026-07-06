@@ -1746,6 +1746,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 	if err := d.BeginObject(); err != nil {
 		return false, err
 	}
+	var seenOneofs uint64
 	fastFirst := true
 	{
 		status, err := d.MatchFast(&fastFirst, "optionalInt32")
@@ -2138,7 +2139,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 		} else {
 			var v TestAllTypesProto3_NestedEnum
 			{
-				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -2163,7 +2164,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 		} else {
 			var v ForeignEnum
 			{
-				val, err := unmarshalEnum_ForeignEnum(d)
+				val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -2188,7 +2189,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 		} else {
 			var v TestAllTypesProto3_AliasedEnum
 			{
-				val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d)
+				val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -2990,7 +2991,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				}
 				var v TestAllTypesProto3_NestedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -3033,7 +3034,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				}
 				var v ForeignEnum
 				{
-					val, err := unmarshalEnum_ForeignEnum(d)
+					val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -3661,7 +3662,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				}
 				var v TestAllTypesProto3_NestedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -4211,7 +4212,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				}
 				var v TestAllTypesProto3_NestedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -4662,6 +4663,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						} else if protojsonxgen.MatchStringBytes(s, "NEG") {
 							return TestAllTypesProto3_NEG, nil
 						} else {
+							if discardUnknown {
+								return 0, nil
+							}
 							return 0, protojsonxgen.UnknownEnumValue(string(s))
 						}
 					} else {
@@ -4707,6 +4711,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAZ") {
 							return ForeignEnum_FOREIGN_BAZ, nil
 						} else {
+							if discardUnknown {
+								return 0, nil
+							}
 							return 0, protojsonxgen.UnknownEnumValue(string(s))
 						}
 					} else {
@@ -4734,8 +4741,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofUint32); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofUint32")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadUint32()
 			if err != nil {
 				return false, err
@@ -4755,8 +4768,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofNestedMessage); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofNestedMessage")
+			}
+			seenOneofs |= (1 << 0)
 			v := &TestAllTypesProto3_NestedMessage{}
 			if fast, ok := any(v).(interface {
 				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
@@ -4786,8 +4805,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofString); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofString")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadString()
 			if err != nil {
 				return false, err
@@ -4807,8 +4832,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofBytes); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofBytes")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadBytes()
 			if err != nil {
 				return false, err
@@ -4828,8 +4859,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofBool); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofBool")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadBool()
 			if err != nil {
 				return false, err
@@ -4849,8 +4886,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofUint64); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofUint64")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadUint64()
 			if err != nil {
 				return false, err
@@ -4870,8 +4913,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofFloat); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofFloat")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadFloat32()
 			if err != nil {
 				return false, err
@@ -4891,8 +4940,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofDouble); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofDouble")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadFloat64()
 			if err != nil {
 				return false, err
@@ -4912,11 +4967,17 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			if _, ok := x.OneofField.(*TestAllTypesProto3_OneofEnum); ok {
+				x.OneofField = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofEnum")
+			}
+			seenOneofs |= (1 << 0)
 			var v TestAllTypesProto3_NestedEnum
 			{
-				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -4937,11 +4998,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OneofField = nil
+			x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: 0}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("oneofNullValue")
+			}
+			seenOneofs |= (1 << 0)
 			var v structpb.NullValue
 			{
-				val, err := unmarshalEnum_NullValue(d)
+				val, err := unmarshalEnum_NullValue(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -5832,7 +5897,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.OptionalValue = nil
+			x.OptionalValue = structpb.NewNullValue()
 		} else {
 			x.OptionalValue = &structpb.Value{}
 			if fast, ok := any(x.OptionalValue).(interface {
@@ -5866,7 +5931,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 		} else {
 			var v structpb.NullValue
 			{
-				val, err := unmarshalEnum_NullValue(d)
+				val, err := unmarshalEnum_NullValue(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -6916,6 +6981,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 	if err := d.BeginObject(); err != nil {
 		return err
 	}
+	var seenOneofs uint64
 	var seen [151]bool
 	first := true
 	for {
@@ -7217,7 +7283,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			} else {
 				var v TestAllTypesProto3_NestedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -7236,7 +7302,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			} else {
 				var v ForeignEnum
 				{
-					val, err := unmarshalEnum_ForeignEnum(d)
+					val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -7255,7 +7321,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			} else {
 				var v TestAllTypesProto3_AliasedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -7925,7 +7991,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					}
 					var v TestAllTypesProto3_NestedEnum
 					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -7962,7 +8028,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					}
 					var v ForeignEnum
 					{
-						val, err := unmarshalEnum_ForeignEnum(d)
+						val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -8494,7 +8560,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					}
 					var v TestAllTypesProto3_NestedEnum
 					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -8960,7 +9026,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					}
 					var v TestAllTypesProto3_NestedEnum
 					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -9303,6 +9369,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 							} else if protojsonxgen.MatchStringBytes(s, "NEG") {
 								return TestAllTypesProto3_NEG, nil
 							} else {
+								if discardUnknown {
+									return 0, nil
+								}
 								return 0, protojsonxgen.UnknownEnumValue(string(s))
 							}
 						} else {
@@ -9342,6 +9411,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 							} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAZ") {
 								return ForeignEnum_FOREIGN_BAZ, nil
 							} else {
+								if discardUnknown {
+									return 0, nil
+								}
 								return 0, protojsonxgen.UnknownEnumValue(string(s))
 							}
 						} else {
@@ -9363,8 +9435,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[91] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofUint32); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadUint32()
 				if err != nil {
 					return err
@@ -9378,8 +9456,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[92] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofNestedMessage); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v := &TestAllTypesProto3_NestedMessage{}
 				if slow, ok := any(v).(interface {
 					unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
@@ -9401,8 +9485,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[93] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofString); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadString()
 				if err != nil {
 					return err
@@ -9416,8 +9506,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[94] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofBytes); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadBytes()
 				if err != nil {
 					return err
@@ -9431,8 +9527,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[95] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofBool); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadBool()
 				if err != nil {
 					return err
@@ -9446,8 +9548,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[96] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofUint64); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadUint64()
 				if err != nil {
 					return err
@@ -9461,8 +9569,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[97] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofFloat); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadFloat32()
 				if err != nil {
 					return err
@@ -9476,8 +9590,14 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[98] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofDouble); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadFloat64()
 				if err != nil {
 					return err
@@ -9491,11 +9611,17 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[99] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				if _, ok := x.OneofField.(*TestAllTypesProto3_OneofEnum); ok {
+					x.OneofField = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				var v TestAllTypesProto3_NestedEnum
 				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -9510,11 +9636,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[100] = true
 			if d.ReadNull() {
-				x.OneofField = nil
+				x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: 0}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				var v structpb.NullValue
 				{
-					val, err := unmarshalEnum_NullValue(d)
+					val, err := unmarshalEnum_NullValue(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -10219,7 +10349,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[124] = true
 			if d.ReadNull() {
-				x.OptionalValue = nil
+				x.OptionalValue = structpb.NewNullValue()
 			} else {
 				x.OptionalValue = &structpb.Value{}
 				if slow, ok := any(x.OptionalValue).(interface {
@@ -10245,7 +10375,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			} else {
 				var v structpb.NullValue
 				{
-					val, err := unmarshalEnum_NullValue(d)
+					val, err := unmarshalEnum_NullValue(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -11294,7 +11424,7 @@ func (x *EnumOnlyProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 	}
 }
 
-func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder) (TestAllTypesProto3_NestedEnum, error) {
+func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestAllTypesProto3_NestedEnum, error) {
 	var v TestAllTypesProto3_NestedEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11310,7 +11440,11 @@ func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder) (Test
 		} else if protojsonxgen.MatchStringBytes(s, "NEG") {
 			v = TestAllTypesProto3_NEG
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11322,7 +11456,7 @@ func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder) (Test
 	return v, nil
 }
 
-func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder) (ForeignEnum, error) {
+func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder, discardUnknown bool) (ForeignEnum, error) {
 	var v ForeignEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11336,7 +11470,11 @@ func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder) (ForeignEnum, error) {
 		} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAZ") {
 			v = ForeignEnum_FOREIGN_BAZ
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11348,7 +11486,7 @@ func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder) (ForeignEnum, error) {
 	return v, nil
 }
 
-func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder) (TestAllTypesProto3_AliasedEnum, error) {
+func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestAllTypesProto3_AliasedEnum, error) {
 	var v TestAllTypesProto3_AliasedEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11368,7 +11506,11 @@ func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder) (Tes
 		} else if protojsonxgen.MatchStringBytes(s, "bAz") {
 			v = TestAllTypesProto3_bAz
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11380,7 +11522,7 @@ func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder) (Tes
 	return v, nil
 }
 
-func unmarshalEnum_NullValue(d *protojsonxgen.Decoder) (structpb.NullValue, error) {
+func unmarshalEnum_NullValue(d *protojsonxgen.Decoder, discardUnknown bool) (structpb.NullValue, error) {
 	var v structpb.NullValue
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11390,7 +11532,11 @@ func unmarshalEnum_NullValue(d *protojsonxgen.Decoder) (structpb.NullValue, erro
 		if protojsonxgen.MatchStringBytes(s, "NULL_VALUE") {
 			v = structpb.NullValue_NULL_VALUE
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()

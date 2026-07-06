@@ -541,7 +541,7 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		} else {
 			var v TestEnum
 			{
-				val, err := unmarshalEnum_TestEnum(d)
+				val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 				if err != nil {
 					return false, err
 				}
@@ -1009,7 +1009,7 @@ func (x *ComplexMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 			} else {
 				var v TestEnum
 				{
-					val, err := unmarshalEnum_TestEnum(d)
+					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 					if err != nil {
 						return err
 					}
@@ -2460,7 +2460,7 @@ func (x *ValueMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discard
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.ValueField = nil
+			x.ValueField = structpb.NewNullValue()
 		} else {
 			x.ValueField = &structpb.Value{}
 			if fast, ok := any(x.ValueField).(interface {
@@ -2509,7 +2509,7 @@ func (x *ValueMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discard
 			}
 			seen[0] = true
 			if d.ReadNull() {
-				x.ValueField = nil
+				x.ValueField = structpb.NewNullValue()
 			} else {
 				x.ValueField = &structpb.Value{}
 				if slow, ok := any(x.ValueField).(interface {
@@ -3190,7 +3190,7 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 				}
 				var v TestEnum
 				{
-					val, err := unmarshalEnum_TestEnum(d)
+					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -3516,7 +3516,7 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decode
 					}
 					var v TestEnum
 					{
-						val, err := unmarshalEnum_TestEnum(d)
+						val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -3696,6 +3696,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 	if err := d.BeginObject(); err != nil {
 		return false, err
 	}
+	var seenOneofs uint64
 	fastFirst := true
 	{
 		status, err := d.MatchFast(&fastFirst, "nameChoice")
@@ -3709,8 +3710,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.Choice = nil
+			if _, ok := x.Choice.(*CompatibilityMessage_NameChoice); ok {
+				x.Choice = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("nameChoice")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadString()
 			if err != nil {
 				return false, err
@@ -3730,8 +3737,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.Choice = nil
+			if _, ok := x.Choice.(*CompatibilityMessage_NumberChoice); ok {
+				x.Choice = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("numberChoice")
+			}
+			seenOneofs |= (1 << 0)
 			v, err := d.ReadInt32()
 			if err != nil {
 				return false, err
@@ -3751,8 +3764,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 			return false, nil
 		}
 		if d.ReadNull() {
-			x.Choice = nil
+			if _, ok := x.Choice.(*CompatibilityMessage_ChildChoice); ok {
+				x.Choice = nil
+			}
 		} else {
+			if seenOneofs&(1<<0) != 0 {
+				return false, protojsonxgen.DuplicateField("childChoice")
+			}
+			seenOneofs |= (1 << 0)
 			v := &ChildMessage{}
 			if fast, ok := any(v).(interface {
 				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
@@ -3961,7 +3980,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 				}
 				var v TestEnum
 				{
-					val, err := unmarshalEnum_TestEnum(d)
+					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 					if err != nil {
 						return false, err
 					}
@@ -4057,6 +4076,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 	if err := d.BeginObject(); err != nil {
 		return err
 	}
+	var seenOneofs uint64
 	var seen [12]bool
 	first := true
 	for {
@@ -4074,8 +4094,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 			}
 			seen[0] = true
 			if d.ReadNull() {
-				x.Choice = nil
+				if _, ok := x.Choice.(*CompatibilityMessage_NameChoice); ok {
+					x.Choice = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadString()
 				if err != nil {
 					return err
@@ -4089,8 +4115,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 			}
 			seen[1] = true
 			if d.ReadNull() {
-				x.Choice = nil
+				if _, ok := x.Choice.(*CompatibilityMessage_NumberChoice); ok {
+					x.Choice = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v, err := d.ReadInt32()
 				if err != nil {
 					return err
@@ -4104,8 +4136,14 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 			}
 			seen[2] = true
 			if d.ReadNull() {
-				x.Choice = nil
+				if _, ok := x.Choice.(*CompatibilityMessage_ChildChoice); ok {
+					x.Choice = nil
+				}
 			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				v := &ChildMessage{}
 				if slow, ok := any(v).(interface {
 					unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
@@ -4276,7 +4314,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 					}
 					var v TestEnum
 					{
-						val, err := unmarshalEnum_TestEnum(d)
+						val, err := unmarshalEnum_TestEnum(d, discardUnknown)
 						if err != nil {
 							return err
 						}
@@ -4352,7 +4390,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 	}
 }
 
-func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder) (TestEnum, error) {
+func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestEnum, error) {
 	var v TestEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -4366,7 +4404,11 @@ func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder) (TestEnum, error) {
 		} else if protojsonxgen.MatchStringBytes(s, "TEST_ENUM_SECOND") {
 			v = TestEnum_TEST_ENUM_SECOND
 		} else {
-			return 0, protojsonxgen.UnknownEnumValue(string(s))
+			if discardUnknown {
+				return 0, nil
+			} else {
+				return 0, protojsonxgen.UnknownEnumValue(string(s))
+			}
 		}
 	} else {
 		n, err := d.ReadInt32()

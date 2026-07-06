@@ -145,6 +145,16 @@ func generateMessageUnmarshalFast(g *protogen.GeneratedFile, helperPackage proto
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return false, err")
 	g.P("}")
+	hasNonSyntheticOneof := false
+	for _, oo := range message.Oneofs {
+		if !oo.Desc.IsSynthetic() {
+			hasNonSyntheticOneof = true
+			break
+		}
+	}
+	if hasNonSyntheticOneof {
+		g.P("var seenOneofs uint64")
+	}
 	if len(message.Fields) > 0 {
 		g.P("fastFirst := true")
 	}
@@ -225,8 +235,31 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 	}
 	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
 		g.P("if d.ReadNull() {")
-		g.P("x.", field.Oneof.GoName, " = nil")
+		if isWKTValue(field) {
+			nullValueIdent := protogen.GoIdent{
+				GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+				GoName:       "NewNullValue",
+			}
+			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
+		} else if isWKTNullValue(field) {
+			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
+		} else {
+			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+			g.P("x.", field.Oneof.GoName, " = nil")
+			g.P("}")
+		}
 		g.P("} else {")
+		oneofIndex := -1
+		for idx, oo := range field.Parent.Oneofs {
+			if oo == field.Oneof {
+				oneofIndex = idx
+				break
+			}
+		}
+		g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+		g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
+		g.P("}")
+		g.P("seenOneofs |= (1 << ", oneofIndex, ")")
 		generateScalarOrMessageReadFast(g, helperPackage, field, "v", true)
 		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
 		g.P("}")
@@ -234,10 +267,18 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 	}
 	isProto3Optional := field.Oneof != nil && field.Oneof.Desc.IsSynthetic()
 	g.P("if d.ReadNull() {")
-	if isProto3Optional {
-		g.P(access, " = nil")
+	if isWKTValue(field) {
+		nullValueIdent := protogen.GoIdent{
+			GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+			GoName:       "NewNullValue",
+		}
+		g.P(access, " = ", g.QualifiedGoIdent(nullValueIdent), "()")
 	} else {
-		g.P(access, " = ", zeroValue(field))
+		if isProto3Optional {
+			g.P(access, " = nil")
+		} else {
+			g.P(access, " = ", zeroValue(field))
+		}
 	}
 	g.P("} else {")
 	generateScalarOrMessageReadFast(g, helperPackage, field, access, false)
@@ -298,7 +339,7 @@ func generateEnumUnmarshalFast(g *protogen.GeneratedFile, helperPackage protogen
 	}
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
 	g.P("{")
-	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d, discardUnknown)")
 	g.P("if err != nil { return false, err }")
 	g.P(readTarget, " = val")
 	g.P("}")
@@ -387,6 +428,16 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return err")
 	g.P("}")
+	hasNonSyntheticOneof := false
+	for _, oo := range message.Oneofs {
+		if !oo.Desc.IsSynthetic() {
+			hasNonSyntheticOneof = true
+			break
+		}
+	}
+	if hasNonSyntheticOneof {
+		g.P("var seenOneofs uint64")
+	}
 	if len(message.Fields) > 0 {
 		g.P("var seen [", len(message.Fields), "]bool")
 	}
@@ -509,8 +560,31 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 	}
 	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
 		g.P("if d.ReadNull() {")
-		g.P("x.", field.Oneof.GoName, " = nil")
+		if isWKTValue(field) {
+			nullValueIdent := protogen.GoIdent{
+				GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+				GoName:       "NewNullValue",
+			}
+			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
+		} else if isWKTNullValue(field) {
+			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
+		} else {
+			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+			g.P("x.", field.Oneof.GoName, " = nil")
+			g.P("}")
+		}
 		g.P("} else {")
+		oneofIndex := -1
+		for idx, oo := range field.Parent.Oneofs {
+			if oo == field.Oneof {
+				oneofIndex = idx
+				break
+			}
+		}
+		g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+		g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
+		g.P("}")
+		g.P("seenOneofs |= (1 << ", oneofIndex, ")")
 		generateScalarOrMessageRead(g, helperPackage, field, "v", true)
 		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
 		g.P("}")
@@ -518,10 +592,18 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 	}
 	isProto3Optional := field.Oneof != nil && field.Oneof.Desc.IsSynthetic()
 	g.P("if d.ReadNull() {")
-	if isProto3Optional {
-		g.P(access, " = nil")
+	if isWKTValue(field) {
+		nullValueIdent := protogen.GoIdent{
+			GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+			GoName:       "NewNullValue",
+		}
+		g.P(access, " = ", g.QualifiedGoIdent(nullValueIdent), "()")
 	} else {
-		g.P(access, " = ", zeroValue(field))
+		if isProto3Optional {
+			g.P(access, " = nil")
+		} else {
+			g.P(access, " = ", zeroValue(field))
+		}
 	}
 	g.P("} else {")
 	generateScalarOrMessageRead(g, helperPackage, field, access, false)
@@ -647,7 +729,7 @@ func generateEnumUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 	}
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
 	g.P("{")
-	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d, discardUnknown)")
 	g.P("if err != nil { return err }")
 	g.P(readTarget, " = val")
 	g.P("}")
@@ -1265,7 +1347,7 @@ func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 			ev := valDesc.Enum().Values().Get(i)
 			body += fmt.Sprintf("\t\t\tif %s(s, %s) {\n\t\t\t\treturn %s, nil\n\t\t\t} else ", matchStringBytes, strconvQuote(string(ev.Name())), g.QualifiedGoIdent(resolveEnumValueGoIdent(valDesc.Enum(), ev)))
 		}
-		body += "{\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
+		body += "{\n\t\t\t\tif discardUnknown {\n\t\t\t\t\treturn 0, nil\n\t\t\t\t}\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
 		body += "\t\t} else {\n\t\t\tn, err := d.ReadInt32()\n\t\t\tif err != nil { return 0, err }\n\t\t\treturn " + enumType + "(n), nil\n\t\t}"
 		
 		return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) {\n\t\t%s\n\t\t}", enumType, body)
@@ -1324,7 +1406,7 @@ func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImpo
 	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
 	unknownEnumValue := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnknownEnumValue"})
 
-	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ") (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
+	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ", discardUnknown bool) (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
 	g.P("var v ", g.QualifiedGoIdent(enum.GoIdent))
 	g.P("if d.IsString() {")
 	g.P("s, err := d.ReadStringBytes()")
@@ -1335,7 +1417,11 @@ func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImpo
 		g.P("} else ")
 	}
 	g.P("{")
+	g.P("if discardUnknown {")
+	g.P("return 0, nil")
+	g.P("} else {")
 	g.P("return 0, ", unknownEnumValue, "(string(s))")
+	g.P("}")
 	g.P("}")
 	g.P("} else {")
 	g.P("n, err := d.ReadInt32()")
@@ -1385,4 +1471,12 @@ func resolveEnumValueGoIdent(enumDesc protoreflect.EnumDescriptor, valDesc proto
 		}
 	}
 	return protogen.GoIdent{GoName: string(enumDesc.Name()) + "_" + string(valDesc.Name())}
+}
+
+func isWKTValue(field *protogen.Field) bool {
+	return field.Desc.Kind() == protoreflect.MessageKind && field.Message != nil && field.Message.Desc.FullName() == "google.protobuf.Value"
+}
+
+func isWKTNullValue(field *protogen.Field) bool {
+	return field.Desc.Kind() == protoreflect.EnumKind && field.Enum != nil && field.Enum.Desc.FullName() == "google.protobuf.NullValue"
 }

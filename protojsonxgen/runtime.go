@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf16"
@@ -441,8 +442,16 @@ func (d *Decoder) ReadBytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	out := make([]byte, base64.StdEncoding.DecodedLen(len(b)))
-	n, err := base64.StdEncoding.Decode(out, b)
+	s := string(b)
+	if strings.ContainsAny(s, "-_") {
+		s = strings.ReplaceAll(s, "-", "+")
+		s = strings.ReplaceAll(s, "_", "/")
+	}
+	if len(s)%4 != 0 {
+		s += strings.Repeat("=", 4-(len(s)%4))
+	}
+	out := make([]byte, base64.StdEncoding.DecodedLen(len(s)))
+	n, err := base64.StdEncoding.Decode(out, []byte(s))
 	if err != nil {
 		return nil, err
 	}
