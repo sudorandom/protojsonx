@@ -21,24 +21,24 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 4,395 ns | 62 | 5,963 ns | 69 |
-| `protojsonx` | **665 ns** | **1** | **1,060 ns** | **5** |
-| `proto` (Binary Wire) | 1,159 ns | 13 | 1,026 ns | 9 |
+| `protojson` (Standard Lib) | 4,405 ns | 62 | 6,079 ns | 69 |
+| `protojsonx` | **660 ns** | **1** | **1,061 ns** | **5** |
+| `proto` (Binary Wire) | 1,105 ns | 13 | 1,024 ns | 9 |
 
 ### Unmarshalling (Deserialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 7,620 ns | 129 | 9,674 ns | 153 |
-| `protojsonx` | **1,438 ns** | **29** | **1,643 ns** | **26** |
-| `proto` (Binary Wire) | 1,707 ns | 45 | 1,539 ns | 33 |
+| `protojson` (Standard Lib) | 7,667 ns | 129 | 9,751 ns | 153 |
+| `protojsonx` | **1,347 ns** | **28** | **1,544 ns** | **25** |
+| `proto` (Binary Wire) | 1,692 ns | 45 | 1,479 ns | 33 |
 
 ### 🚀 Summary
 
-- **Marshal is about 5.6-6.6x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 5.3-5.9x faster than `protojson`**, depending on message shape.
+- **Marshal is about 5.7-6.6x faster than `protojson`** with dramatically fewer allocations.
+- **Unmarshal is about 5.6-6.3x faster than `protojson`**, depending on message shape.
 - **Marshal and Unmarshal are fully competitive with binary protobuf**, outperforming it in simple scenarios and matching it closely in complex scenarios.
-- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **26 allocs/op** with `protojsonx`.
+- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **25 allocs/op** with `protojsonx`.
 - **Automatic plugin delegation**: `protojsonx` works out-of-the-box using reflection-free code-generated paths if generated with our `protoc` plugin, falling back gracefully to the table-driven reflection engine otherwise.
 
 ## How It Works
