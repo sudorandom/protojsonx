@@ -4678,7 +4678,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 							return TestAllTypesProto3_NEG, nil
 						} else {
 							if discardUnknown {
-								return 0, nil
+								return 0, protojsonxgen.ErrIgnoredMapEntry
 							}
 							return 0, protojsonxgen.UnknownEnumValue(string(s))
 						}
@@ -4726,7 +4726,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 							return ForeignEnum_FOREIGN_BAZ, nil
 						} else {
 							if discardUnknown {
-								return 0, nil
+								return 0, protojsonxgen.ErrIgnoredMapEntry
 							}
 							return 0, protojsonxgen.UnknownEnumValue(string(s))
 						}
@@ -9396,7 +9396,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 								return TestAllTypesProto3_NEG, nil
 							} else {
 								if discardUnknown {
-									return 0, nil
+									return 0, protojsonxgen.ErrIgnoredMapEntry
 								}
 								return 0, protojsonxgen.UnknownEnumValue(string(s))
 							}
@@ -9438,7 +9438,7 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 								return ForeignEnum_FOREIGN_BAZ, nil
 							} else {
 								if discardUnknown {
-									return 0, nil
+									return 0, protojsonxgen.ErrIgnoredMapEntry
 								}
 								return 0, protojsonxgen.UnknownEnumValue(string(s))
 							}

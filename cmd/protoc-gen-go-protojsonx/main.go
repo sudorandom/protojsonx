@@ -1376,7 +1376,8 @@ func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 			ev := valDesc.Enum().Values().Get(i)
 			body += fmt.Sprintf("\t\t\tif %s(s, %s) {\n\t\t\t\treturn %s, nil\n\t\t\t} else ", matchStringBytes, strconvQuote(string(ev.Name())), g.QualifiedGoIdent(resolveEnumValueGoIdent(valDesc.Enum(), ev)))
 		}
-		body += "{\n\t\t\t\tif discardUnknown {\n\t\t\t\t\treturn 0, nil\n\t\t\t\t}\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
+		errIgnoredMapEntry := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: protogen.GoImportPath("github.com/sudorandom/protojsonx/protojsonxgen"), GoName: "ErrIgnoredMapEntry"})
+		body += "{\n\t\t\t\tif discardUnknown {\n\t\t\t\t\treturn 0, " + errIgnoredMapEntry + "\n\t\t\t\t}\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
 		body += "\t\t} else {\n\t\t\tn, err := d.ReadInt32()\n\t\t\tif err != nil { return 0, err }\n\t\t\treturn " + enumType + "(n), nil\n\t\t}"
 		
 		return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) {\n\t\t%s\n\t\t}", enumType, body)
