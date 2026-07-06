@@ -338,9 +338,13 @@ func generateEnumUnmarshalFast(g *protogen.GeneratedFile, helperPackage protogen
 		readTarget = "v"
 	}
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
-	g.P("{")
-	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d, discardUnknown)")
-	g.P("if err != nil { return false, err }")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+	g.P("if err != nil {")
+	g.P("if err == ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}), " && discardUnknown {")
+	g.P("} else {")
+	g.P("return false, err")
+	g.P("}")
+	g.P("} else {")
 	g.P(readTarget, " = val")
 	g.P("}")
 	if !declare {
@@ -631,9 +635,22 @@ func generateListUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 		g.P("if d.ReadNull() {")
 		g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NullRepeatedMessage"}), "()")
 		g.P("}")
+		generateScalarOrMessageRead(g, helperPackage, field, "v", true)
+		g.P("values = append(values, v)")
+	} else if field.Desc.Kind() == protoreflect.EnumKind {
+		g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+		g.P("if err != nil {")
+		g.P("if err == ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}), " && discardUnknown {")
+		g.P("} else {")
+		g.P("return err")
+		g.P("}")
+		g.P("} else {")
+		g.P("values = append(values, val)")
+		g.P("}")
+	} else {
+		generateScalarOrMessageRead(g, helperPackage, field, "v", true)
+		g.P("values = append(values, v)")
 	}
-	generateScalarOrMessageRead(g, helperPackage, field, "v", true)
-	g.P("values = append(values, v)")
 	g.P("}")
 	g.P(access, " = values")
 	g.P("}")
@@ -728,9 +745,13 @@ func generateEnumUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 		readTarget = "v"
 	}
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
-	g.P("{")
-	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d, discardUnknown)")
-	g.P("if err != nil { return err }")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+	g.P("if err != nil {")
+	g.P("if err == ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}), " && discardUnknown {")
+	g.P("} else {")
+	g.P("return err")
+	g.P("}")
+	g.P("} else {")
 	g.P(readTarget, " = val")
 	g.P("}")
 	if !declare {
@@ -806,6 +827,7 @@ func generateMessageMarshalTo(g *protogen.GeneratedFile, helperPackage protogen.
 func generateFieldMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field) {
 	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
 		g.P("if w, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+		g.P("_ = w")
 		generateFieldMarshalBody(g, helperPackage, field, "w."+field.GoName, true)
 		g.P("}")
 		return
@@ -1049,6 +1071,10 @@ func generateMessageFieldMarshal(g *protogen.GeneratedFile, helperPackage protog
 }
 
 func generateEnumMarshal(g *protogen.GeneratedFile, field *protogen.Field, value string) {
+	if isWKTNullValue(field) {
+		g.P("e.Raw(\"null\")")
+		return
+	}
 	g.P("switch ", value, " {")
 	seen := make(map[protoreflect.EnumNumber]bool)
 	for _, enumValue := range field.Enum.Values {
@@ -1243,6 +1269,9 @@ func mapValueEncoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 	case protoreflect.EnumKind:
 		enumIdent := resolveEnumGoIdent(valDesc.Enum())
 		enumType := g.QualifiedGoIdent(enumIdent)
+		if valDesc.Enum().FullName() == "google.protobuf.NullValue" {
+			return "func(e *protojsonxgen.Encoder, v " + enumType + ") error { e.Raw(\"null\"); return nil }"
+		}
 		// We generate a switch to map enum values to strings
 		switchBody := "switch v {\n"
 		seen := make(map[protoreflect.EnumNumber]bool)
@@ -1404,9 +1433,8 @@ func collectEnums(file *protogen.File) []*protogen.Enum {
 
 func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, enum *protogen.Enum) {
 	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
-	unknownEnumValue := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnknownEnumValue"})
 
-	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ", discardUnknown bool) (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
+	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ") (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
 	g.P("var v ", g.QualifiedGoIdent(enum.GoIdent))
 	g.P("if d.IsString() {")
 	g.P("s, err := d.ReadStringBytes()")
@@ -1417,11 +1445,7 @@ func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImpo
 		g.P("} else ")
 	}
 	g.P("{")
-	g.P("if discardUnknown {")
-	g.P("return 0, nil")
-	g.P("} else {")
-	g.P("return 0, ", unknownEnumValue, "(string(s))")
-	g.P("}")
+	g.P("return 0, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}))
 	g.P("}")
 	g.P("} else {")
 	g.P("n, err := d.ReadInt32()")

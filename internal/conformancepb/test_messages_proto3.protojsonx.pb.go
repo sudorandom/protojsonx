@@ -996,10 +996,12 @@ func (x *TestAllTypesProto3) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error
 		}
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofUint32); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofUint32")
 		e.Uint32(w.OneofUint32)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofNestedMessage); ok {
+		_ = w
 		if w.OneofNestedMessage != nil {
 			e.FieldPrefix(&wrote, "oneofNestedMessage")
 			if fast, ok := any(w.OneofNestedMessage).(interface {
@@ -1016,30 +1018,37 @@ func (x *TestAllTypesProto3) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error
 		}
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofString); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofString")
 		e.String(w.OneofString)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofBytes); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofBytes")
 		e.BytesField(w.OneofBytes)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofBool); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofBool")
 		e.Bool(w.OneofBool)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofUint64); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofUint64")
 		e.Uint64String(w.OneofUint64)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofFloat); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofFloat")
 		e.Float32(w.OneofFloat)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofDouble); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofDouble")
 		e.Float64(w.OneofDouble)
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofEnum); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofEnum")
 		switch w.OneofEnum {
 		case TestAllTypesProto3_FOO:
@@ -1055,13 +1064,9 @@ func (x *TestAllTypesProto3) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error
 		}
 	}
 	if w, ok := x.OneofField.(*TestAllTypesProto3_OneofNullValue); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "oneofNullValue")
-		switch w.OneofNullValue {
-		case structpb.NullValue_NULL_VALUE:
-			e.String("NULL_VALUE")
-		default:
-			e.Int32(int32(w.OneofNullValue))
-		}
+		e.Raw("null")
 	}
 	if x.OptionalBoolWrapper != nil {
 		e.FieldPrefix(&wrote, "optionalBoolWrapper")
@@ -1484,12 +1489,7 @@ func (x *TestAllTypesProto3) marshalProtoJSONXTo(e *protojsonxgen.Encoder) error
 	}
 	if x.OptionalNullValue != 0 {
 		e.FieldPrefix(&wrote, "optionalNullValue")
-		switch x.OptionalNullValue {
-		case structpb.NullValue_NULL_VALUE:
-			e.String("NULL_VALUE")
-		default:
-			e.Int32(int32(x.OptionalNullValue))
-		}
+		e.Raw("null")
 	}
 	if len(x.RepeatedDuration) > 0 {
 		e.FieldPrefix(&wrote, "repeatedDuration")
@@ -2138,11 +2138,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			x.OptionalNestedEnum = 0
 		} else {
 			var v TestAllTypesProto3_NestedEnum
-			{
-				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OptionalNestedEnum = v
@@ -2163,11 +2165,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			x.OptionalForeignEnum = 0
 		} else {
 			var v ForeignEnum
-			{
-				val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_ForeignEnum(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OptionalForeignEnum = v
@@ -2188,11 +2192,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			x.OptionalAliasedEnum = 0
 		} else {
 			var v TestAllTypesProto3_AliasedEnum
-			{
-				val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OptionalAliasedEnum = v
@@ -2990,11 +2996,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 					break
 				}
 				var v TestAllTypesProto3_NestedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -3033,11 +3041,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 					break
 				}
 				var v ForeignEnum
-				{
-					val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_ForeignEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -3661,11 +3671,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 					break
 				}
 				var v TestAllTypesProto3_NestedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -4211,11 +4223,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 					break
 				}
 				var v TestAllTypesProto3_NestedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -4976,11 +4990,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			}
 			seenOneofs |= (1 << 0)
 			var v TestAllTypesProto3_NestedEnum
-			{
-				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OneofField = &TestAllTypesProto3_OneofEnum{OneofEnum: v}
@@ -5005,11 +5021,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			}
 			seenOneofs |= (1 << 0)
 			var v structpb.NullValue
-			{
-				val, err := unmarshalEnum_NullValue(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_NullValue(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: v}
@@ -5930,11 +5948,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 			x.OptionalNullValue = 0
 		} else {
 			var v structpb.NullValue
-			{
-				val, err := unmarshalEnum_NullValue(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_NullValue(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.OptionalNullValue = v
@@ -7282,11 +7302,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				x.OptionalNestedEnum = 0
 			} else {
 				var v TestAllTypesProto3_NestedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OptionalNestedEnum = v
@@ -7301,11 +7323,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				x.OptionalForeignEnum = 0
 			} else {
 				var v ForeignEnum
-				{
-					val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_ForeignEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OptionalForeignEnum = v
@@ -7320,11 +7344,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				x.OptionalAliasedEnum = 0
 			} else {
 				var v TestAllTypesProto3_AliasedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_AliasedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OptionalAliasedEnum = v
@@ -7989,15 +8015,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					if !elemOK {
 						break
 					}
-					var v TestAllTypesProto3_NestedEnum
-					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.RepeatedNestedEnum = values
 			}
@@ -8026,15 +8052,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					if !elemOK {
 						break
 					}
-					var v ForeignEnum
-					{
-						val, err := unmarshalEnum_ForeignEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_ForeignEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.RepeatedForeignEnum = values
 			}
@@ -8558,15 +8584,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					if !elemOK {
 						break
 					}
-					var v TestAllTypesProto3_NestedEnum
-					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.PackedNestedEnum = values
 			}
@@ -9024,15 +9050,15 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					if !elemOK {
 						break
 					}
-					var v TestAllTypesProto3_NestedEnum
-					{
-						val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.UnpackedNestedEnum = values
 			}
@@ -9620,11 +9646,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				}
 				seenOneofs |= (1 << 0)
 				var v TestAllTypesProto3_NestedEnum
-				{
-					val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OneofField = &TestAllTypesProto3_OneofEnum{OneofEnum: v}
@@ -9643,11 +9671,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				}
 				seenOneofs |= (1 << 0)
 				var v structpb.NullValue
-				{
-					val, err := unmarshalEnum_NullValue(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_NullValue(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: v}
@@ -10374,11 +10404,13 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 				x.OptionalNullValue = 0
 			} else {
 				var v structpb.NullValue
-				{
-					val, err := unmarshalEnum_NullValue(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_NullValue(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.OptionalNullValue = v
@@ -11424,7 +11456,7 @@ func (x *EnumOnlyProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 	}
 }
 
-func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestAllTypesProto3_NestedEnum, error) {
+func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder) (TestAllTypesProto3_NestedEnum, error) {
 	var v TestAllTypesProto3_NestedEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11440,11 +11472,7 @@ func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder, disca
 		} else if protojsonxgen.MatchStringBytes(s, "NEG") {
 			v = TestAllTypesProto3_NEG
 		} else {
-			if discardUnknown {
-				return 0, nil
-			} else {
-				return 0, protojsonxgen.UnknownEnumValue(string(s))
-			}
+			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11456,7 +11484,7 @@ func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder, disca
 	return v, nil
 }
 
-func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder, discardUnknown bool) (ForeignEnum, error) {
+func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder) (ForeignEnum, error) {
 	var v ForeignEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11470,11 +11498,7 @@ func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder, discardUnknown bool) (F
 		} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAZ") {
 			v = ForeignEnum_FOREIGN_BAZ
 		} else {
-			if discardUnknown {
-				return 0, nil
-			} else {
-				return 0, protojsonxgen.UnknownEnumValue(string(s))
-			}
+			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11486,7 +11510,7 @@ func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder, discardUnknown bool) (F
 	return v, nil
 }
 
-func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestAllTypesProto3_AliasedEnum, error) {
+func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder) (TestAllTypesProto3_AliasedEnum, error) {
 	var v TestAllTypesProto3_AliasedEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11506,11 +11530,7 @@ func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder, disc
 		} else if protojsonxgen.MatchStringBytes(s, "bAz") {
 			v = TestAllTypesProto3_bAz
 		} else {
-			if discardUnknown {
-				return 0, nil
-			} else {
-				return 0, protojsonxgen.UnknownEnumValue(string(s))
-			}
+			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
 		n, err := d.ReadInt32()
@@ -11522,7 +11542,7 @@ func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder, disc
 	return v, nil
 }
 
-func unmarshalEnum_NullValue(d *protojsonxgen.Decoder, discardUnknown bool) (structpb.NullValue, error) {
+func unmarshalEnum_NullValue(d *protojsonxgen.Decoder) (structpb.NullValue, error) {
 	var v structpb.NullValue
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -11532,11 +11552,7 @@ func unmarshalEnum_NullValue(d *protojsonxgen.Decoder, discardUnknown bool) (str
 		if protojsonxgen.MatchStringBytes(s, "NULL_VALUE") {
 			v = structpb.NullValue_NULL_VALUE
 		} else {
-			if discardUnknown {
-				return 0, nil
-			} else {
-				return 0, protojsonxgen.UnknownEnumValue(string(s))
-			}
+			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
 		n, err := d.ReadInt32()

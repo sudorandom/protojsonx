@@ -1519,6 +1519,9 @@ func UnknownField(name string) error {
 	return errors.New("unknown field: " + name)
 }
 
+var ErrUnknownEnum = errors.New("unknown enum value name")
+var ErrIgnoredMapEntry = errors.New("ignored map entry")
+
 func UnknownEnumValue(name string) error {
 	return errors.New("unknown enum value: " + name)
 }
@@ -1583,6 +1586,9 @@ func ReadMap[K comparable, V any](d *Decoder, m map[K]V, keyParse func(string) (
 		}
 		val, err := valDec(d)
 		if err != nil {
+			if errors.Is(err, ErrIgnoredMapEntry) {
+				continue
+			}
 			return err
 		}
 		m[key] = val

@@ -540,11 +540,13 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 			x.EnumField = 0
 		} else {
 			var v TestEnum
-			{
-				val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-				if err != nil {
+			val, err := unmarshalEnum_TestEnum(d)
+			if err != nil {
+				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+				} else {
 					return false, err
 				}
+			} else {
 				v = val
 			}
 			x.EnumField = v
@@ -1008,11 +1010,13 @@ func (x *ComplexMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 				x.EnumField = 0
 			} else {
 				var v TestEnum
-				{
-					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return err
 					}
+				} else {
 					v = val
 				}
 				x.EnumField = v
@@ -3189,11 +3193,13 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 					break
 				}
 				var v TestEnum
-				{
-					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -3514,15 +3520,15 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decode
 					if !elemOK {
 						break
 					}
-					var v TestEnum
-					{
-						val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_TestEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.RepeatedEnum = values
 			}
@@ -3580,14 +3586,17 @@ func (x *CompatibilityMessage) marshalProtoJSONXTo(e *protojsonxgen.Encoder) err
 	e.Byte('{')
 	wrote := false
 	if w, ok := x.Choice.(*CompatibilityMessage_NameChoice); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "nameChoice")
 		e.String(w.NameChoice)
 	}
 	if w, ok := x.Choice.(*CompatibilityMessage_NumberChoice); ok {
+		_ = w
 		e.FieldPrefix(&wrote, "numberChoice")
 		e.Int32(w.NumberChoice)
 	}
 	if w, ok := x.Choice.(*CompatibilityMessage_ChildChoice); ok {
+		_ = w
 		if w.ChildChoice != nil {
 			e.FieldPrefix(&wrote, "childChoice")
 			if fast, ok := any(w.ChildChoice).(interface {
@@ -3979,11 +3988,13 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 					break
 				}
 				var v TestEnum
-				{
-					val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-					if err != nil {
+				val, err := unmarshalEnum_TestEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
 						return false, err
 					}
+				} else {
 					v = val
 				}
 				values = append(values, v)
@@ -4312,15 +4323,15 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 					if !elemOK {
 						break
 					}
-					var v TestEnum
-					{
-						val, err := unmarshalEnum_TestEnum(d, discardUnknown)
-						if err != nil {
+					val, err := unmarshalEnum_TestEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
 							return err
 						}
-						v = val
+					} else {
+						values = append(values, val)
 					}
-					values = append(values, v)
 				}
 				x.RepeatedEnum = values
 			}
@@ -4390,7 +4401,7 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 	}
 }
 
-func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder, discardUnknown bool) (TestEnum, error) {
+func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder) (TestEnum, error) {
 	var v TestEnum
 	if d.IsString() {
 		s, err := d.ReadStringBytes()
@@ -4404,11 +4415,7 @@ func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder, discardUnknown bool) (Test
 		} else if protojsonxgen.MatchStringBytes(s, "TEST_ENUM_SECOND") {
 			v = TestEnum_TEST_ENUM_SECOND
 		} else {
-			if discardUnknown {
-				return 0, nil
-			} else {
-				return 0, protojsonxgen.UnknownEnumValue(string(s))
-			}
+			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
 		n, err := d.ReadInt32()
