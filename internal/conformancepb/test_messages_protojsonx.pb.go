@@ -14,10 +14,4 @@ func (x *TestAllTypesProto2) UnmarshalProtoJSONX(data []byte) error {
 	return protojsonxgen.Unmarshal(data, x)
 }
 
-func (x *TestAllTypesProto3) MarshalProtoJSONX() ([]byte, error) {
-	return protojsonxgen.Marshal(x)
-}
 
-func (x *TestAllTypesProto3) UnmarshalProtoJSONX(data []byte) error {
-	return protojsonxgen.Unmarshal(data, x)
-}

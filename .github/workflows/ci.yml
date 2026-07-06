@@ -77,8 +77,13 @@ jobs:
           mkdir -p ../runner-bin
           cp bazel-bin/conformance/conformance_test_runner ../runner-bin/
 
-      - name: Build conformance binary
-        run: just conformance-binary
+      - name: Build conformance binaries
+        run: |
+          just conformance-binary
+          just plugin-conformance-binary
 
-      - name: Run conformance tests
+      - name: Run conformance tests (Library Mode)
         run: ./runner-bin/conformance_test_runner --enforce_recommended .bin/protojsonx-conformance
+
+      - name: Run conformance tests (Plugin Mode)
+        run: ./runner-bin/conformance_test_runner --enforce_recommended .bin/protojsonx-plugin-conformance

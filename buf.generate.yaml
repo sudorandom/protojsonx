@@ -4,7 +4,12 @@ plugins:
     out: .
     opt:
       - module=github.com/sudorandom/protojsonx
+      - Mgoogle/protobuf/test_messages_proto3.proto=github.com/sudorandom/protojsonx/internal/conformancepb;conformance
+      - Mgoogle/protobuf/test_messages_proto2.proto=github.com/sudorandom/protojsonx/internal/conformancepb;conformance
   - local: ["go", "run", "./cmd/protoc-gen-go-protojsonx"]
     out: .
     opt:
       - module=github.com/sudorandom/protojsonx
+      - Mgoogle/protobuf/test_messages_proto3.proto=github.com/sudorandom/protojsonx/internal/conformancepb;conformance
+      - Mgoogle/protobuf/test_messages_proto2.proto=github.com/sudorandom/protojsonx/internal/conformancepb;conformance
+

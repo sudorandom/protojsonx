@@ -169,3 +169,18 @@ func TestHandleSkipsTextFormat(t *testing.T) {
 	_, ok := res.GetResult().(*conformance.ConformanceResponse_Skipped)
 	assert.True(t, ok, "got %T", res.GetResult())
 }
+
+func TestConformanceSuiteInPluginMode(t *testing.T) {
+	oldMode := conformanceMode
+	conformanceMode = "plugin"
+	defer func() {
+		conformanceMode = oldMode
+	}()
+
+	t.Run("RejectsPartiallyNumericJSONStrings", TestHandleRejectsPartiallyNumericJSONStrings)
+	t.Run("AcceptsQuotedIntegerExponentJSON", TestHandleAcceptsQuotedIntegerExponentJSON)
+	t.Run("AllowsEmptyAnyJSON", TestHandleAllowsEmptyAnyJSON)
+	t.Run("EmitsConformanceEmptyAnyJSON", TestHandleEmitsConformanceEmptyAnyJSON)
+	t.Run("RejectsOverlongWireTag", TestHandleRejectsOverlongWireTag)
+	t.Run("SkipsTextFormat", TestHandleSkipsTextFormat)
+}

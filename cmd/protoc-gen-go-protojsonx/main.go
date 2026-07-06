@@ -50,6 +50,10 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) {
 	for _, message := range file.Messages {
 		generateMessage(g, helperPackage, message)
 	}
+
+	for _, enum := range collectEnums(file) {
+		generateEnumHelper(g, helperPackage, enum)
+	}
 }
 
 func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, message *protogen.Message) {
@@ -141,19 +145,15 @@ func generateMessageUnmarshalFast(g *protogen.GeneratedFile, helperPackage proto
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return false, err")
 	g.P("}")
-	g.P("fastFirst := true")
+	if len(message.Fields) > 0 {
+		g.P("fastFirst := true")
+	}
 	for _, field := range message.Fields {
 		g.P("{")
-		g.P("matched, done, err := d.TryObjectFieldFast(&fastFirst, ", strconvQuote(field.Desc.JSONName()), ")")
-		g.P("if err != nil {")
-		g.P("return false, err")
-		g.P("}")
-		g.P("if done {")
-		g.P("return true, nil")
-		g.P("}")
-		g.P("if !matched {")
-		g.P("return false, nil")
-		g.P("}")
+		g.P("status, err := d.MatchFast(&fastFirst, ", strconvQuote(field.Desc.JSONName()), ")")
+		g.P("if err != nil { return false, err }")
+		g.P("if status == 0 { return true, nil }")
+		g.P("if status < 0 { return false, nil }")
 		generateFieldUnmarshalFast(g, helperPackage, field)
 		g.P("}")
 	}
@@ -296,23 +296,11 @@ func generateEnumUnmarshalFast(g *protogen.GeneratedFile, helperPackage protogen
 	if !declare {
 		readTarget = "v"
 	}
-	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
-	g.P("if d.IsString() {")
-	g.P("s, err := d.ReadStringBytes()")
-	g.P("if err != nil { return false, err }")
-	for _, enumValue := range field.Enum.Values {
-		g.P("if ", matchStringBytes, "(s, ", strconvQuote(string(enumValue.Desc.Name())), ") {")
-		g.P(readTarget, " = ", enumValue.GoIdent)
-		g.P("} else ")
-	}
 	g.P("{")
-	g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnknownEnumValue"}), "(string(s))")
-	g.P("}")
-	g.P("} else {")
-	g.P("n, err := d.ReadInt32()")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
 	g.P("if err != nil { return false, err }")
-	g.P(readTarget, " = ", field.Enum.GoIdent, "(n)")
+	g.P(readTarget, " = val")
 	g.P("}")
 	if !declare {
 		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
@@ -399,7 +387,9 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 	g.P("if err := d.BeginObject(); err != nil {")
 	g.P("return err")
 	g.P("}")
-	g.P("var seen uint64")
+	if len(message.Fields) > 0 {
+		g.P("var seen [", len(message.Fields), "]bool")
+	}
 	g.P("first := true")
 	g.P("for {")
 	g.P("key, ok, err := d.NextObjectKey(&first)")
@@ -432,10 +422,8 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 		}
 		g.P("}")
 	} else {
-		// Narrow messages: ordered hint + switch-string (better cache behaviour
+		// Narrow messages: switch-string (better cache behaviour
 		// than a map at low field counts).
-		g.P("expected := 0")
-		generateOrderedFieldFastPath(g, helperPackage, message)
 		g.P("switch key {")
 		for i, field := range message.Fields {
 			jsonName := field.Desc.JSONName()
@@ -462,30 +450,14 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 	g.P()
 }
 
-func generateOrderedFieldFastPath(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, message *protogen.Message) {
-	if len(message.Fields) == 0 {
-		return
-	}
-	g.P("switch expected {")
-	for i, field := range message.Fields {
-		g.P("case ", i, ":")
-		g.P("if key == ", strconvQuote(field.Desc.JSONName()), " {")
-		g.P("expected = ", i+1)
-		generateSeenCheck(g, helperPackage, i)
-		generateFieldUnmarshal(g, helperPackage, field)
-		g.P("continue")
-		g.P("}")
-	}
-	g.P("}")
-}
+
 
 func generateSeenCheck(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, index int) {
 	duplicate := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"})
-	g.P("const bit = uint64(1) << ", index)
-	g.P("if seen&bit != 0 {")
+	g.P("if seen[", index, "] {")
 	g.P("return ", duplicate, "(key)")
 	g.P("}")
-	g.P("seen |= bit")
+	g.P("seen[", index, "] = true")
 }
 
 func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, field *protogen.Field) {
@@ -673,23 +645,11 @@ func generateEnumUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.GoI
 	if !declare {
 		readTarget = "v"
 	}
-	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
 	g.P("var ", readTarget, " ", field.Enum.GoIdent)
-	g.P("if d.IsString() {")
-	g.P("s, err := d.ReadStringBytes()")
-	g.P("if err != nil { return err }")
-	for _, enumValue := range field.Enum.Values {
-		g.P("if ", matchStringBytes, "(s, ", strconvQuote(string(enumValue.Desc.Name())), ") {")
-		g.P(readTarget, " = ", enumValue.GoIdent)
-		g.P("} else ")
-	}
 	g.P("{")
-	g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnknownEnumValue"}), "(string(s))")
-	g.P("}")
-	g.P("} else {")
-	g.P("n, err := d.ReadInt32()")
+	g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
 	g.P("if err != nil { return err }")
-	g.P(readTarget, " = ", field.Enum.GoIdent, "(n)")
+	g.P(readTarget, " = val")
 	g.P("}")
 	if !declare {
 		if field.Oneof != nil && field.Oneof.Desc.IsSynthetic() {
@@ -749,7 +709,9 @@ func generateMessageMarshalTo(g *protogen.GeneratedFile, helperPackage protogen.
 	encoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Encoder"})
 	g.P("func (x *", message.GoIdent, ") marshalProtoJSONXTo(e *", encoderIdent, ") error {")
 	g.P("e.Byte('{')")
-	g.P("wrote := false")
+	if len(message.Fields) > 0 {
+		g.P("wrote := false")
+	}
 	for _, field := range message.Fields {
 		generateFieldMarshal(g, helperPackage, field)
 	}
@@ -968,8 +930,12 @@ func generateListMarshal(g *protogen.GeneratedFile, helperPackage protogen.GoImp
 	case protoreflect.MessageKind:
 		g.P("if v == nil {")
 		g.P("e.Raw(\"null\")")
-		g.P("} else if err := v.marshalProtoJSONXTo(e); err != nil {")
-		g.P("return err")
+		g.P("} else {")
+		g.P("if fast, ok := any(v).(interface{ marshalProtoJSONXTo(*", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Encoder"}), ") error }); ok {")
+		g.P("if err := fast.marshalProtoJSONXTo(e); err != nil { return err }")
+		g.P("} else {")
+		g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MarshalField"}), "(e, v); err != nil { return err }")
+		g.P("}")
 		g.P("}")
 	}
 	g.P("}")
@@ -1002,7 +968,13 @@ func generateMessageFieldMarshal(g *protogen.GeneratedFile, helperPackage protog
 
 func generateEnumMarshal(g *protogen.GeneratedFile, field *protogen.Field, value string) {
 	g.P("switch ", value, " {")
+	seen := make(map[protoreflect.EnumNumber]bool)
 	for _, enumValue := range field.Enum.Values {
+		num := enumValue.Desc.Number()
+		if seen[num] {
+			continue
+		}
+		seen[num] = true
 		g.P("case ", enumValue.GoIdent, ":")
 		g.P("e.String(", strconvQuote(string(enumValue.Desc.Name())), ")")
 	}
@@ -1191,12 +1163,15 @@ func mapValueEncoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 		enumType := g.QualifiedGoIdent(enumIdent)
 		// We generate a switch to map enum values to strings
 		switchBody := "switch v {\n"
+		seen := make(map[protoreflect.EnumNumber]bool)
 		for i := 0; i < valDesc.Enum().Values().Len(); i++ {
 			ev := valDesc.Enum().Values().Get(i)
-			switchBody += fmt.Sprintf("\t\tcase %s:\n\t\t\te.String(%s)\n", g.QualifiedGoIdent(protogen.GoIdent{
-				GoImportPath: enumIdent.GoImportPath,
-				GoName:       enumIdent.GoName + "_" + string(ev.Name()),
-			}), strconvQuote(string(ev.Name())))
+			num := ev.Number()
+			if seen[num] {
+				continue
+			}
+			seen[num] = true
+			switchBody += fmt.Sprintf("\t\tcase %s:\n\t\t\te.String(%s)\n", g.QualifiedGoIdent(resolveEnumValueGoIdent(valDesc.Enum(), ev)), strconvQuote(string(ev.Name())))
 		}
 		switchBody += "\t\tdefault:\n\t\t\te.Int32(int32(v))\n\t\t}"
 		return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { %s; return nil }", enumType, switchBody)
@@ -1210,7 +1185,7 @@ func mapValueEncoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 		case "google.protobuf.Duration":
 			return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { if v == nil { e.Raw(\"null\"); return nil }; return e.Duration(v.GetSeconds(), v.GetNanos()) }", msgType)
 		default:
-			return fmt.Sprintf("func(e *protojsonxgen.Encoder, v %s) error { if v == nil { e.Raw(\"null\"); return nil }; if fast, ok := any(v).(interface{ marshalProtoJSONXTo(*protojsonxgen.Encoder) error }); ok { return fast.marshalProtoJSONXTo(e) } else { return protojsonxgen.MarshalField(e, v) } }", msgType)
+			return fmt.Sprintf("protojsonxgen.MarshalMessageMapValue[%s]", msgType)
 		}
 	}
 	return "nil"
@@ -1288,10 +1263,7 @@ func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 			"\t\t\tif err != nil { return 0, err }\n"
 		for i := 0; i < valDesc.Enum().Values().Len(); i++ {
 			ev := valDesc.Enum().Values().Get(i)
-			body += fmt.Sprintf("\t\t\tif %s(s, %s) {\n\t\t\t\treturn %s, nil\n\t\t\t} else ", matchStringBytes, strconvQuote(string(ev.Name())), g.QualifiedGoIdent(protogen.GoIdent{
-				GoImportPath: enumIdent.GoImportPath,
-				GoName:       enumIdent.GoName + "_" + string(ev.Name()),
-			}))
+			body += fmt.Sprintf("\t\t\tif %s(s, %s) {\n\t\t\t\treturn %s, nil\n\t\t\t} else ", matchStringBytes, strconvQuote(string(ev.Name())), g.QualifiedGoIdent(resolveEnumValueGoIdent(valDesc.Enum(), ev)))
 		}
 		body += "{\n\t\t\t\treturn 0, " + unknownEnumValue + "(string(s))\n\t\t\t}\n"
 		body += "\t\t} else {\n\t\t\tn, err := d.ReadInt32()\n\t\t\tif err != nil { return 0, err }\n\t\t\treturn " + enumType + "(n), nil\n\t\t}"
@@ -1307,8 +1279,110 @@ func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 		case "google.protobuf.Duration":
 			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { secs, nanos, err := d.ReadDuration(); if err != nil { return nil, err }; return &%s{Seconds: secs, Nanos: nanos}, nil }", msgType, g.QualifiedGoIdent(msgIdent))
 		default:
-			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { if d.ReadNull() { return nil, nil }; v := &%s{}; if fast, ok := any(v).(interface{ unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error) }); ok { if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil { return nil, err } else if !ok { if err := v.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil { return nil, err } } } else { if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil { return nil, err } }; return v, nil }", msgType, g.QualifiedGoIdent(msgIdent))
+			return fmt.Sprintf("func(d *protojsonxgen.Decoder) (%s, error) { return protojsonxgen.UnmarshalMessageMapValue[%s](d, discardUnknown) }", msgType, g.QualifiedGoIdent(msgIdent))
 		}
 	}
 	return "nil"
+}
+
+func collectEnums(file *protogen.File) []*protogen.Enum {
+	var enums []*protogen.Enum
+	seen := make(map[string]bool)
+
+	var collectMsg func(m *protogen.Message)
+	collectMsg = func(m *protogen.Message) {
+		if m.Desc.IsMapEntry() {
+			return
+		}
+		for _, f := range m.Fields {
+			if f.Desc.Kind() == protoreflect.EnumKind && f.Enum != nil {
+				name := string(f.Enum.Desc.FullName())
+				if !seen[name] {
+					seen[name] = true
+					enums = append(enums, f.Enum)
+				}
+			}
+			if f.Desc.IsMap() && f.Desc.MapValue().Kind() == protoreflect.EnumKind && f.Enum != nil {
+				name := string(f.Enum.Desc.FullName())
+				if !seen[name] {
+					seen[name] = true
+					enums = append(enums, f.Enum)
+				}
+			}
+		}
+		for _, nested := range m.Messages {
+			collectMsg(nested)
+		}
+	}
+	for _, m := range file.Messages {
+		collectMsg(m)
+	}
+	return enums
+}
+
+func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, enum *protogen.Enum) {
+	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
+	unknownEnumValue := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnknownEnumValue"})
+
+	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ") (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
+	g.P("var v ", g.QualifiedGoIdent(enum.GoIdent))
+	g.P("if d.IsString() {")
+	g.P("s, err := d.ReadStringBytes()")
+	g.P("if err != nil { return 0, err }")
+	for _, enumValue := range enum.Values {
+		g.P("if ", matchStringBytes, "(s, ", strconvQuote(string(enumValue.Desc.Name())), ") {")
+		g.P("v = ", g.QualifiedGoIdent(enumValue.GoIdent))
+		g.P("} else ")
+	}
+	g.P("{")
+	g.P("return 0, ", unknownEnumValue, "(string(s))")
+	g.P("}")
+	g.P("} else {")
+	g.P("n, err := d.ReadInt32()")
+	g.P("if err != nil { return 0, err }")
+	g.P("v = ", g.QualifiedGoIdent(enum.GoIdent), "(n)")
+	g.P("}")
+	g.P("return v, nil")
+	g.P("}")
+	g.P()
+}
+
+func resolveEnumValueGoIdent(enumDesc protoreflect.EnumDescriptor, valDesc protoreflect.EnumValueDescriptor) protogen.GoIdent {
+	if currentPlugin != nil {
+		for _, f := range currentPlugin.Files {
+			// Search top level enums
+			for _, e := range f.Enums {
+				if e.Desc.FullName() == enumDesc.FullName() {
+					for _, ev := range e.Values {
+						if ev.Desc.Name() == valDesc.Name() {
+							return ev.GoIdent
+						}
+					}
+				}
+			}
+			// Search nested enums
+			var searchMessages func([]*protogen.Message) *protogen.EnumValue
+			searchMessages = func(messages []*protogen.Message) *protogen.EnumValue {
+				for _, m := range messages {
+					for _, e := range m.Enums {
+						if e.Desc.FullName() == enumDesc.FullName() {
+							for _, ev := range e.Values {
+								if ev.Desc.Name() == valDesc.Name() {
+									return ev
+								}
+							}
+						}
+					}
+					if found := searchMessages(m.Messages); found != nil {
+						return found
+					}
+				}
+				return nil
+			}
+			if ev := searchMessages(f.Messages); ev != nil {
+				return ev.GoIdent
+			}
+		}
+	}
+	return protogen.GoIdent{GoName: string(enumDesc.Name()) + "_" + string(valDesc.Name())}
 }

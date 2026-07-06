@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"slices"
 	"strconv"
 	"sync"
@@ -982,6 +983,20 @@ func (d *Decoder) TryObjectFieldFast(first *bool, name string) (matched bool, do
 	return true, false, nil
 }
 
+func (d *Decoder) MatchFast(first *bool, name string) (status int, err error) {
+	matched, done, err := d.TryObjectFieldFast(first, name)
+	if err != nil {
+		return 0, err
+	}
+	if done {
+		return 0, nil
+	}
+	if !matched {
+		return -1, nil
+	}
+	return 1, nil
+}
+
 func (d *Decoder) TryEndObject() (bool, error) {
 	d.skipWhitespace()
 	if d.off >= len(d.data) {
@@ -1564,4 +1579,44 @@ func ReadMap[K comparable, V any](d *Decoder, m map[K]V, keyParse func(string) (
 		m[key] = val
 	}
 	return nil
+}
+
+func MarshalMessageMapValue[V proto.Message](e *Encoder, v V) error {
+	if any(v) == nil || reflect.ValueOf(v).IsNil() {
+		e.Raw("null")
+		return nil
+	}
+	if fast, ok := any(v).(interface{ marshalProtoJSONXTo(*Encoder) error }); ok {
+		return fast.marshalProtoJSONXTo(e)
+	}
+	return MarshalField(e, v)
+}
+
+func UnmarshalMessageMapValue[V any, PT interface {
+	*V
+	proto.Message
+}](d *Decoder, discardUnknown bool) (PT, error) {
+	if d.ReadNull() {
+		return nil, nil
+	}
+	var v V
+	var pt PT = &v
+	if fast, ok := any(pt).(interface {
+		unmarshalProtoJSONXFast(*Decoder, bool) (bool, error)
+	}); ok {
+		if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+			return nil, err
+		} else if !ok {
+			if err := any(pt).(interface {
+				unmarshalProtoJSONXFrom(*Decoder, bool) error
+			}).unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		if err := UnmarshalField(d, pt, discardUnknown); err != nil {
+			return nil, err
+		}
+	}
+	return pt, nil
 }
