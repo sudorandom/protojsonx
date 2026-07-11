@@ -357,3 +357,84 @@ func TestFallbackOptimizations(t *testing.T) {
 		assert.Equal(t, "hello", *out.OptionalString)
 	})
 }
+
+func TestUnmarshalEdgeCases(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		wantErr bool
+	}{
+		{
+			name:    "deeply nested arrays in skipValue",
+			payload: `{"unknown":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}`,
+			wantErr: true, // exceeds recursion limit
+		},
+		{
+			name:    "invalid surrogate pairs",
+			payload: `{"stringField":"\ud800\ud800"}`,
+			wantErr: true,
+		},
+		{
+			name:    "invalid low surrogate",
+			payload: `{"stringField":"\udc00"}`,
+			wantErr: true,
+		},
+		{
+			name:    "unpaired high surrogate",
+			payload: `{"stringField":"\ud83d"}`,
+			wantErr: true,
+		},
+		{
+			name:    "unpaired high surrogate followed by low invalid",
+			payload: `{"stringField":"\ud83d\u0000"}`,
+			wantErr: true,
+		},
+		{
+			name:    "extreme large float",
+			payload: `{"doubleField":1e9999999}`,
+			wantErr: true, // invalid JSON number or Infinity
+		},
+		{
+			name:    "extreme large int32",
+			payload: `{"int32Field":99999999999999999999999999999999999999999999999999999}`,
+			wantErr: true, // out of range
+		},
+		{
+			name:    "bad base64",
+			payload: `{"bytesField":"!!!!"}`,
+			wantErr: true, // fails to decode base64
+		},
+		{
+			name:    "control characters in string",
+			payload: "{\"stringField\":\"\x00\x1f\"}",
+			wantErr: true, // invalid control character
+		},
+		{
+			name:    "unterminated string",
+			payload: `{"stringField":"abc`,
+			wantErr: true,
+		},
+		{
+			name:    "whitespace exhaustion",
+			payload: `{  "stringField"  :  "hello"  ,  "int32Field"  :  123  }`,
+			wantErr: false,
+		},
+		{
+			name:    "incomplete escape sequence",
+			payload: `{"stringField":"\u123"}`,
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var msg testpb.ComplexMessage
+			err := UnmarshalOptions{DiscardUnknown: true}.Unmarshal([]byte(tc.payload), &msg)
+			if tc.wantErr {
+				require.Error(t, err, "expected error for %s", tc.name)
+			} else {
+				require.NoError(t, err, "unexpected error for %s", tc.name)
+			}
+		})
+	}
+}
