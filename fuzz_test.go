@@ -44,6 +44,38 @@ func FuzzUnmarshal(f *testing.F) {
 	f.Add([]byte(`{"stringField":null,"childField":{"name":null,"value":null},"repeatedMessage":null,"mapStringString":{}}`))
 	f.Add([]byte(`{"repeatedString":[null],"mapStringString":{"k":null},"repeatedMessage":[{"name":null}]}`))
 
+	// Deeply nested objects to trigger recursion limit
+	f.Add([]byte(`{"childField":{"childField":{"childField":{"childField":{"childField":{}}}}}}`))
+
+	// Deeply nested arrays in unknown fields to trigger recursion limit in skipValue
+	f.Add([]byte(`{"unknown":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}`))
+	f.Add([]byte(`{"unknown":{"a":{"a":{"a":{"a":{"a":{"a":{"a":{}}}}}}}}}`))
+
+	// Invalid surrogate pairs
+	f.Add([]byte(`{"stringField":"\ud800\ud800"}`))
+	f.Add([]byte(`{"stringField":"\udc00"}`))
+	f.Add([]byte(`{"stringField":"\ud83d\u0000"}`))
+
+	// Extreme numbers
+	f.Add([]byte(`{"doubleField":1e9999999}`))
+	f.Add([]byte(`{"doubleField":-1e-9999999}`))
+	f.Add([]byte(`{"int32Field":99999999999999999999999999999999999999999999999999999}`))
+
+	// Whitespace exhaustion
+	f.Add([]byte(`{  "stringField"  :  "hello"  ,  "int32Field"  :  123  }`))
+
+	// Bad base64
+	f.Add([]byte(`{"bytesField":"!!!!"}`))
+	f.Add([]byte(`{"bytesField":"=abc"}`))
+
+	// Unterminated strings and arrays/objects
+	f.Add([]byte(`{"stringField":"abc`))
+	f.Add([]byte(`{"repeatedString":["abc"`))
+	f.Add([]byte(`{"childField":{"name":"a"`))
+
+	// Control characters in strings
+	f.Add([]byte("{\"stringField\":\"\x00\x1f\"}"))
+
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var msg testpb.ComplexMessage
 		_ = Unmarshal(data, &msg)
