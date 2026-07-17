@@ -1436,25 +1436,10 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 
 	fullName := mt.Descriptor().FullName()
 	if isCustomWellKnown(fullName) {
-		if fullName == "google.protobuf.Empty" || fullName == "google.protobuf.Struct" {
+		if fullName == "google.protobuf.Empty" {
 			b.writeByte('{')
 			b.buf = append(b.buf, `"@type":`...)
 			b.writeEscapedString(typeURL)
-			tempBuf := encBufPool.Get().(*encBuffer)
-			tempBuf.buf = tempBuf.buf[:0]
-			err = marshalCustomWellKnown(em.Interface(), tempBuf, opts)
-			if err != nil {
-				encBufPool.Put(tempBuf)
-				return err
-			}
-			if len(tempBuf.buf) >= 2 && tempBuf.buf[0] == '{' && tempBuf.buf[len(tempBuf.buf)-1] == '}' {
-				stripped := tempBuf.buf[1 : len(tempBuf.buf)-1]
-				if len(stripped) > 0 {
-					b.writeByte(',')
-					b.buf = append(b.buf, stripped...)
-				}
-			}
-			encBufPool.Put(tempBuf)
 			b.writeByte('}')
 			return nil
 		}
