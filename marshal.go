@@ -270,7 +270,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*string)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != "") || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != "" || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -297,7 +297,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*int32)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -324,7 +324,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*int64)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -351,7 +351,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*uint32)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -378,7 +378,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*uint64)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -405,7 +405,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*float32)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -432,7 +432,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*float64)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -459,7 +459,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*bool)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -476,7 +476,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 		case TypeBytes:
 			val := *(*[]byte)(fieldPtr)
 			present := val != nil
-			if (inst.isOptional && present) || (!inst.isOptional && len(val) > 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (len(val) > 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -503,7 +503,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 			} else {
 				val = *(*int32)(fieldPtr)
 			}
-			if (inst.isOptional && present) || (!inst.isOptional && val != 0) || opts.EmitUnpopulated {
+			if (inst.isOptional && present) || (!inst.isOptional && (val != 0 || opts.EmitUnpopulated)) {
 				if wroteAny {
 					b.writeByte(',')
 				}
@@ -1434,7 +1434,16 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 		return fmt.Errorf("google.protobuf.Any: unable to unmarshal %q: %v", typeURL, err)
 	}
 
-	if isCustomWellKnown(mt.Descriptor().FullName()) {
+	fullName := mt.Descriptor().FullName()
+	if isCustomWellKnown(fullName) {
+		if fullName == "google.protobuf.Empty" {
+			b.writeByte('{')
+			b.buf = append(b.buf, `"@type":`...)
+			b.writeEscapedString(typeURL)
+			b.writeByte('}')
+			return nil
+		}
+
 		b.writeByte('{')
 		b.buf = append(b.buf, `"@type":`...)
 		b.writeEscapedString(typeURL)
@@ -1454,7 +1463,7 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 	if err != nil {
 		return err
 	}
-	subMsgPtr := unsafe.Pointer(reflect.ValueOf(em.Interface()).Pointer())
+	subMsgPtr := reflect.ValueOf(em.Interface()).UnsafePointer()
 
 	tempBuf := encBufPool.Get().(*encBuffer)
 	tempBuf.buf = tempBuf.buf[:0]
@@ -1518,7 +1527,7 @@ func marshalProtoreflectValue(val protoreflect.Value, fd protoreflect.FieldDescr
 		if err != nil {
 			return err
 		}
-		subMsgPtr := unsafe.Pointer(reflect.ValueOf(msg).Pointer())
+		subMsgPtr := reflect.ValueOf(msg).UnsafePointer()
 		return subTable.marshalTo(subMsgPtr, b, opts)
 	default:
 		return fmt.Errorf("unsupported oneof field kind: %v", fd.Kind())

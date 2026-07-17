@@ -111,6 +111,7 @@ type MessageTable struct {
 	fieldMap           map[string]*fieldInstruction
 	useProtojson       bool
 	hasExtensionRanges bool
+	oneofCount         int
 	ready              chan struct{}
 	done               atomic.Bool
 	err                error
@@ -214,6 +215,7 @@ func getTable(msg proto.Message) (*MessageTable, error) {
 		table.useProtojson = fullTable.useProtojson
 		table.hasExtensionRanges = fullTable.hasExtensionRanges
 		table.fullName = fullTable.fullName
+		table.oneofCount = fullTable.oneofCount
 	}
 	table.err = err
 	table.done.Store(true)
@@ -240,6 +242,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		fieldMap:           make(map[string]*fieldInstruction),
 		fullName:           desc.FullName(),
 		hasExtensionRanges: desc.ExtensionRanges().Len() > 0,
+		oneofCount:         desc.Oneofs().Len(),
 		ready:              make(chan struct{}),
 	}
 	close(table.ready)
@@ -578,6 +581,7 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 		table.useProtojson = fullTable.useProtojson
 		table.hasExtensionRanges = fullTable.hasExtensionRanges
 		table.fullName = fullTable.fullName
+		table.oneofCount = fullTable.oneofCount
 		for i := range table.fields {
 			inst := &table.fields[i]
 			table.fieldMap[inst.jsonName] = inst

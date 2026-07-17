@@ -153,7 +153,11 @@ func generateMessageUnmarshalFast(g *protogen.GeneratedFile, helperPackage proto
 		}
 	}
 	if hasNonSyntheticOneof {
-		g.P("var seenOneofs uint64")
+		if len(message.Oneofs) > 64 {
+			g.P("seenOneofs := make([]bool, ", len(message.Oneofs), ")")
+		} else {
+			g.P("var seenOneofs uint64")
+		}
 	}
 	if len(message.Fields) > 0 {
 		g.P("fastFirst := true")
@@ -256,10 +260,17 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 				break
 			}
 		}
-		g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
-		g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
-		g.P("}")
-		g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+		if len(field.Parent.Oneofs) > 64 {
+			g.P("if seenOneofs[", oneofIndex, "] {")
+			g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
+			g.P("}")
+			g.P("seenOneofs[", oneofIndex, "] = true")
+		} else {
+			g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+			g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
+			g.P("}")
+			g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+		}
 		generateScalarOrMessageReadFast(g, helperPackage, field, "v", true)
 		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
 		g.P("}")
@@ -440,7 +451,11 @@ func generateMessageUnmarshalFrom(g *protogen.GeneratedFile, helperPackage proto
 		}
 	}
 	if hasNonSyntheticOneof {
-		g.P("var seenOneofs uint64")
+		if len(message.Oneofs) > 64 {
+			g.P("seenOneofs := make([]bool, ", len(message.Oneofs), ")")
+		} else {
+			g.P("var seenOneofs uint64")
+		}
 	}
 	if len(message.Fields) > 0 {
 		g.P("var seen [", len(message.Fields), "]bool")
@@ -585,10 +600,17 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 				break
 			}
 		}
-		g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
-		g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
-		g.P("}")
-		g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+		if len(field.Parent.Oneofs) > 64 {
+			g.P("if seenOneofs[", oneofIndex, "] {")
+			g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
+			g.P("}")
+			g.P("seenOneofs[", oneofIndex, "] = true")
+		} else {
+			g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+			g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
+			g.P("}")
+			g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+		}
 		generateScalarOrMessageRead(g, helperPackage, field, "v", true)
 		g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": v}")
 		g.P("}")

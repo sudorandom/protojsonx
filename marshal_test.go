@@ -71,6 +71,13 @@ func TestComprehensiveShapes(t *testing.T) {
 		assert.Contains(t, string(dataEmit), `"doubleField"`)
 		assert.Contains(t, string(dataEmit), `"int32Field"`)
 		assert.Contains(t, string(dataEmit), `"boolField"`)
+
+		// Verify optional primitives are omitted when unset even with EmitUnpopulated: true
+		compatMsg := &testpb.CompatibilityMessage{}
+		dataEmitCompat, err := MarshalOptions{EmitUnpopulated: true}.Marshal(compatMsg)
+		require.NoError(t, err)
+		assert.NotContains(t, string(dataEmitCompat), `"optionalString"`)
+		assert.NotContains(t, string(dataEmitCompat), `"optionalInt32"`)
 	})
 
 	t.Run("UseProtoNames Option", func(t *testing.T) {
