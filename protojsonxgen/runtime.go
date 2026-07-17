@@ -602,11 +602,14 @@ func (d *Decoder) readInt64() (int64, error) {
 	if err == nil {
 		return v, nil
 	}
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, err
+	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, err
 	}
-	if f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt64) || f > float64(math.MaxInt64) {
+	if f < -9223372036854775808.0 || f >= 9223372036854775808.0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, fmt.Errorf("invalid integer: %s", s)
 	}
 	return int64(f), nil
@@ -642,11 +645,14 @@ func (d *Decoder) readUint64() (uint64, error) {
 	if err == nil {
 		return v, nil
 	}
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, err
+	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, err
 	}
-	if f < 0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) || f > float64(math.MaxUint64) {
+	if f < 0 || f >= 18446744073709551616.0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, fmt.Errorf("invalid integer: %s", s)
 	}
 	return uint64(f), nil

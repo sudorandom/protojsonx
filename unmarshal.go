@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"fmt"
+	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
@@ -34,6 +35,26 @@ type UnmarshalOptions struct {
 
 func allocate(t reflect.Type, _ UnmarshalOptions) reflect.Value {
 	return reflect.New(t)
+}
+
+type oneofTracker struct {
+	mask  uint64
+	slice []bool
+}
+
+func (t *oneofTracker) has(idx int) bool {
+	if t.slice != nil {
+		return t.slice[idx]
+	}
+	return (t.mask & (uint64(1) << uint(idx))) != 0
+}
+
+func (t *oneofTracker) set(idx int) {
+	if t.slice != nil {
+		t.slice[idx] = true
+	} else {
+		t.mask |= uint64(1) << uint(idx)
+	}
 }
 
 // decBuffer is a cursor over the input JSON. The parser is intentionally
@@ -219,11 +240,14 @@ func parseStringOrNumberToInt64(s string) (int64, error) {
 	if err == nil {
 		return v, nil
 	}
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, err
+	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, err
 	}
-	if f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) || f < float64(math.MinInt64) || f > float64(math.MaxInt64) {
+	if f < -9223372036854775808.0 || f >= 9223372036854775808.0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, fmt.Errorf("invalid integer: %s", s)
 	}
 	return int64(f), nil
@@ -234,11 +258,14 @@ func parseStringOrNumberToUint64(s string) (uint64, error) {
 	if err == nil {
 		return v, nil
 	}
+	if errors.Is(err, strconv.ErrRange) {
+		return 0, err
+	}
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return 0, err
 	}
-	if f < 0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) || f > float64(math.MaxUint64) {
+	if f < 0 || f >= 18446744073709551616.0 || f != math.Round(f) || math.IsNaN(f) || math.IsInf(f, 0) {
 		return 0, fmt.Errorf("invalid integer: %s", s)
 	}
 	return uint64(f), nil
@@ -476,7 +503,7 @@ func (d *decBuffer) unmarshalWrapper(opts UnmarshalOptions, inst *fieldInstructi
 	subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
 	if *subMsgPtrPtr == nil {
 		newVal := allocate(inst.elemType, opts)
-		*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+		*subMsgPtrPtr = newVal.UnsafePointer()
 	}
 	if d.isObject() {
 		return d.parseObject(func(key []byte) error {
@@ -966,75 +993,13 @@ func unsafeString(b []byte) string {
 	return unsafe.String(unsafe.SliceData(b), len(b))
 }
 
-// parseDuration parses protobuf Duration JSON using integer arithmetic so
-// large second values keep exact nanosecond precision.
-func parseDuration(s string) (int64, int32, error) {
-	if len(s) < 2 || s[len(s)-1] != 's' {
-		return 0, 0, errors.New("duration must end in s")
-	}
-	s = s[:len(s)-1]
-	if s == "" {
-		return 0, 0, errors.New("empty duration")
-	}
 
-	neg := false
-	if s[0] == '-' || s[0] == '+' {
-		neg = s[0] == '-'
-		s = s[1:]
-		if s == "" {
-			return 0, 0, errors.New("empty duration")
-		}
-	}
-
-	dot := -1
-	for i := 0; i < len(s); i++ {
-		if s[i] == '.' {
-			if dot >= 0 {
-				return 0, 0, errors.New("invalid duration")
-			}
-			dot = i
-		}
-	}
-
-	intPart := s
-	if dot >= 0 {
-		intPart = s[:dot]
-	}
-	if intPart == "" {
-		return 0, 0, errors.New("invalid duration")
-	}
-	secs, err := strconv.ParseInt(intPart, 10, 64)
-	if err != nil {
-		return 0, 0, err
-	}
-
-	var nanos int64
-	if dot >= 0 {
-		frac := s[dot+1:]
-		if frac == "" || len(frac) > 9 {
-			return 0, 0, errors.New("invalid duration fractional seconds")
-		}
-		for i := 0; i < len(frac); i++ {
-			c := frac[i]
-			if c < '0' || c > '9' {
-				return 0, 0, errors.New("invalid duration fractional seconds")
-			}
-			nanos = nanos*10 + int64(c-'0')
-		}
-		for i := len(frac); i < 9; i++ {
-			nanos *= 10
-		}
-	}
-
-	if neg {
-		secs = -secs
-		nanos = -nanos
-	}
-	return secs, int32(nanos), nil
-}
 
 func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts UnmarshalOptions) error {
-	var seenOneofs uint64
+	var seenOneofs oneofTracker
+	if table.oneofCount > 64 {
+		seenOneofs.slice = make([]bool, table.oneofCount)
+	}
 	if len(table.fields) > 64 {
 		table.resetIfNeeded(ptr)
 		seen := make(map[*fieldInstruction]struct{}, len(table.fields))
@@ -1072,11 +1037,11 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 		if inst.ftype == TypeOneofField && !d.peekNull() {
 			od := inst.fd.ContainingOneof()
 			if od != nil {
-				bit := uint64(1) << uint(od.Index())
-				if seenOneofs&bit != 0 {
+				idx := od.Index()
+				if seenOneofs.has(idx) {
 					return fmt.Errorf("duplicate oneof field: %s", key)
 				}
-				seenOneofs |= bit
+				seenOneofs.set(idx)
 			}
 		}
 		bit := uint64(1) << uint(inst.index)
@@ -1104,7 +1069,7 @@ var errUnknownEnum = errors.New("unknown enum value name")
 
 // unmarshalField is the wide-message fallback. It uses a map for duplicate
 // detection because the fast 64-bit seen mask cannot represent every field.
-func (table *MessageTable) unmarshalField(ptr unsafe.Pointer, d *decBuffer, opts UnmarshalOptions, key []byte, seen map[*fieldInstruction]struct{}, seenExts map[string]struct{}, seenOneofs *uint64) error {
+func (table *MessageTable) unmarshalField(ptr unsafe.Pointer, d *decBuffer, opts UnmarshalOptions, key []byte, seen map[*fieldInstruction]struct{}, seenExts map[string]struct{}, seenOneofs *oneofTracker) error {
 	if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
 		extName := string(key[1 : len(key)-1])
 		xt, errExt := protoregistry.GlobalTypes.FindExtensionByName(protoreflect.FullName(extName))
@@ -1127,11 +1092,11 @@ func (table *MessageTable) unmarshalField(ptr unsafe.Pointer, d *decBuffer, opts
 	if inst.ftype == TypeOneofField && !d.peekNull() {
 		od := inst.fd.ContainingOneof()
 		if od != nil {
-			bit := uint64(1) << uint(od.Index())
-			if *seenOneofs&bit != 0 {
+			idx := od.Index()
+			if seenOneofs.has(idx) {
 				return fmt.Errorf("duplicate oneof field: %s", key)
 			}
-			*seenOneofs |= bit
+			seenOneofs.set(idx)
 		}
 	}
 	if _, ok := seen[inst]; ok {
@@ -1190,7 +1155,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
 			if *subMsgPtrPtr == nil {
 				newVal := allocate(inst.elemType, opts)
-				*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+				*subMsgPtrPtr = newVal.UnsafePointer()
 			}
 			msg := reflect.NewAt(inst.elemType, *subMsgPtrPtr).Interface().(proto.Message)
 			pref := msg.ProtoReflect()
@@ -1205,7 +1170,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 	targetPtr := fieldPtr
 	if inst.goPointer {
 		newVal := allocate(inst.elemType, opts)
-		targetPtr = unsafe.Pointer(newVal.Pointer())
+		targetPtr = newVal.UnsafePointer()
 		*(*unsafe.Pointer)(fieldPtr) = targetPtr
 	}
 
@@ -1468,7 +1433,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		if *subMsgPtrPtr == nil {
 			newVal := allocate(inst.msgTable.goType, opts)
-			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
 		return inst.msgTable.unmarshalFrom(*subMsgPtrPtr, d, opts)
 	case TypeTimestamp:
@@ -1479,7 +1444,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		if *subMsgPtrPtr == nil {
 			newVal := allocate(inst.elemType, opts)
-			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
 		val, err := d.readStringBytes()
 		if err != nil {
@@ -1504,13 +1469,13 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		}
 		if *subMsgPtrPtr == nil {
 			newVal := allocate(inst.elemType, opts)
-			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
 		val, err := d.readStringBytes()
 		if err != nil {
 			return err
 		}
-		secs, nanos, err := parseDuration(unsafeString(val))
+		secs, nanos, err := protojsonxgen.ParseDuration(unsafeString(val))
 		if err != nil {
 			return err
 		}
@@ -1673,7 +1638,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
 		if *subMsgPtrPtr == nil {
 			newVal := allocate(inst.elemType, opts)
-			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
 		if d.isObject() {
 			err := d.parseObject(func(key []byte) error {
@@ -1692,7 +1657,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
 		if *subMsgPtrPtr == nil {
 			newVal := allocate(inst.elemType, opts)
-			*subMsgPtrPtr = unsafe.Pointer(newVal.Pointer())
+			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
 		msg := reflect.NewAt(inst.elemType, *subMsgPtrPtr).Interface().(proto.Message)
 		if err := unmarshalCustomWellKnown(msg, d, opts); err != nil {
@@ -1736,7 +1701,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 				msg := newElem.Interface().(proto.Message)
 				err = unmarshalCustomWellKnown(msg, d, opts)
 			} else {
-				err = inst.msgTable.unmarshalFrom(unsafe.Pointer(newElem.Pointer()), d, opts)
+				err = inst.msgTable.unmarshalFrom(newElem.UnsafePointer(), d, opts)
 			}
 			if err != nil {
 				return err
@@ -1805,58 +1770,14 @@ func unmarshalCustomWellKnown(msg proto.Message, d *decBuffer, opts UnmarshalOpt
 		if err != nil {
 			return err
 		}
-		s := string(bytes)
-		if !strings.HasSuffix(s, "s") {
-			return fmt.Errorf("invalid duration format: missing suffix 's'")
-		}
-		s = s[:len(s)-1]
-		neg := false
-		if strings.HasPrefix(s, "-") {
-			neg = true
-			s = s[1:]
-		}
-		var secs int64
-		var nanos int64
-		idx := strings.IndexByte(s, '.')
-		if idx == -1 {
-			var err error
-			secs, err = strconv.ParseInt(s, 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid duration: %v", err)
-			}
-		} else {
-			var err error
-			secs, err = strconv.ParseInt(s[:idx], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid duration: %v", err)
-			}
-			frac := s[idx+1:]
-			if len(frac) > 9 {
-				return fmt.Errorf("duration fraction has too many digits")
-			}
-			nanos, err = strconv.ParseInt(frac, 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid duration fraction: %v", err)
-			}
-			for len(frac) < 9 {
-				nanos *= 10
-				frac += "0"
-			}
-		}
-		if neg {
-			secs = -secs
-			nanos = -nanos
-		}
-		if nanos < math.MinInt32 || nanos > math.MaxInt32 {
-			return fmt.Errorf("duration: nanos out of range %d", nanos)
-		}
-		if err := validateDuration(secs, int32(nanos)); err != nil {
+		secs, nanos, err := protojsonxgen.ParseDuration(string(bytes))
+		if err != nil {
 			return err
 		}
 		fdSec := pref.Descriptor().Fields().ByNumber(1)
 		fdNano := pref.Descriptor().Fields().ByNumber(2)
 		pref.Set(fdSec, protoreflect.ValueOfInt64(secs))
-		pref.Set(fdNano, protoreflect.ValueOfInt32(int32(nanos)))
+		pref.Set(fdNano, protoreflect.ValueOfInt32(nanos))
 		return nil
 	case "google.protobuf.DoubleValue",
 		"google.protobuf.FloatValue",
@@ -1994,9 +1915,7 @@ func unmarshalFieldMask(pref protoreflect.Message, d *decBuffer) error {
 	parts := strings.Split(str, ",")
 	fd := pref.Descriptor().Fields().ByNumber(1)
 	list := pref.Mutable(fd).List()
-	for list.Len() > 0 {
-		list.Truncate(0)
-	}
+	list.Truncate(0)
 	for _, s0 := range parts {
 		s := jsonSnakeCase(s0)
 		if strings.Contains(s0, "_") || !protoreflect.FullName(s).IsValid() {
@@ -2086,9 +2005,7 @@ func unmarshalValue(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptio
 func unmarshalListValue(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptions) error {
 	fd := pref.Descriptor().Fields().ByNumber(1)
 	list := pref.Mutable(fd).List()
-	for list.Len() > 0 {
-		list.Truncate(0)
-	}
+	list.Truncate(0)
 
 	return d.parseArray(func() error {
 		val := list.NewElement()
@@ -2102,6 +2019,44 @@ func unmarshalListValue(pref protoreflect.Message, d *decBuffer, opts UnmarshalO
 
 var errMissingType = errors.New(`missing "@type" field`)
 var errEmptyObject = errors.New(`empty object`)
+
+func hasValueKey(d *decBuffer) bool {
+	dCopy := *d
+	dCopy.skipWhitespace()
+	if dCopy.off >= len(dCopy.data) || dCopy.data[dCopy.off] != '{' {
+		return false
+	}
+	dCopy.off++
+	first := true
+	for {
+		dCopy.skipWhitespace()
+		if dCopy.off >= len(dCopy.data) || dCopy.data[dCopy.off] == '}' {
+			return false
+		}
+		if !first {
+			if dCopy.data[dCopy.off] != ',' {
+				return false
+			}
+			dCopy.off++
+		}
+		first = false
+		key, err := dCopy.readStringBytes()
+		if err != nil {
+			return false
+		}
+		if string(key) == "value" {
+			return true
+		}
+		dCopy.skipWhitespace()
+		if dCopy.off >= len(dCopy.data) || dCopy.data[dCopy.off] != ':' {
+			return false
+		}
+		dCopy.off++
+		if err := dCopy.skipValue(); err != nil {
+			return false
+		}
+	}
+}
 
 func findTypeURL(d *decBuffer) (string, error) {
 	dCopy := *d
@@ -2180,6 +2135,23 @@ func unmarshalAny(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptions
 
 	typeURL, err := findTypeURL(d)
 	if err != nil {
+		if err == errEmptyObject {
+			d.skipWhitespace()
+			if d.off >= len(d.data) || d.data[d.off] != '{' {
+				return errors.New("expected '{' for Any")
+			}
+			d.off++
+			d.skipWhitespace()
+			if d.off >= len(d.data) || d.data[d.off] != '}' {
+				return errors.New("expected empty object for Any")
+			}
+			d.off++
+			fdType := pref.Descriptor().Fields().ByNumber(1)
+			fdValue := pref.Descriptor().Fields().ByNumber(2)
+			pref.Clear(fdType)
+			pref.Clear(fdValue)
+			return nil
+		}
 		if err == errMissingType && opts.DiscardUnknown {
 			return d.skipValue()
 		}
@@ -2207,58 +2179,99 @@ func unmarshalAny(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptions
 
 	em := mt.New()
 
-	if isCustomWellKnown(mt.Descriptor().FullName()) {
-		d.skipWhitespace()
-		if d.off >= len(d.data) || d.data[d.off] != '{' {
-			return errors.New("expected '{' for Any")
-		}
-		d.off++
-
-		first := true
-		for {
-			d.skipWhitespace()
-			if d.off >= len(d.data) {
-				return errors.New("unexpected EOF")
-			}
-			if d.data[d.off] == '}' {
-				d.off++
-				break
-			}
-			if !first {
-				if d.data[d.off] != ',' {
-					return errors.New("expected ','")
-				}
-				d.off++
-				d.skipWhitespace()
-			}
-			first = false
-
-			key, err := d.readStringBytes()
-			if err != nil {
-				return err
-			}
-			d.skipWhitespace()
-			if d.off >= len(d.data) || d.data[d.off] != ':' {
-				return errors.New("expected ':'")
-			}
-			d.off++
-
-			if string(key) == "@type" {
-				_, err := d.readStringBytes()
+	fullName := mt.Descriptor().FullName()
+	if isCustomWellKnown(fullName) {
+		if (fullName == "google.protobuf.Empty" || fullName == "google.protobuf.Struct") && !hasValueKey(d) {
+			if fullName == "google.protobuf.Struct" {
+				fd := em.Interface().ProtoReflect().Descriptor().Fields().ByNumber(1)
+				m := em.Interface().ProtoReflect().Mutable(fd).Map()
+				m.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
+					m.Clear(k)
+					return true
+				})
+				err = d.parseObject(func(key []byte) error {
+					if string(key) == "@type" {
+						_, err := d.readStringBytes()
+						return err
+					}
+					val := m.NewValue()
+					if err := unmarshalValue(val.Message(), d, opts); err != nil {
+						return err
+					}
+					m.Set(protoreflect.ValueOfString(string(key)).MapKey(), val)
+					return nil
+				})
 				if err != nil {
 					return err
 				}
-			} else if string(key) == "value" {
-				if err := unmarshalCustomWellKnown(em.Interface(), d, opts); err != nil {
+			} else {
+				err = d.parseObject(func(key []byte) error {
+					if string(key) == "@type" {
+						_, err := d.readStringBytes()
+						return err
+					}
+					if opts.DiscardUnknown {
+						return d.skipValue()
+					}
+					return fmt.Errorf("unknown field in Empty: %s", string(key))
+				})
+				if err != nil {
 					return err
 				}
-			} else {
-				if opts.DiscardUnknown {
-					if err := d.skipValue(); err != nil {
+			}
+		} else {
+			d.skipWhitespace()
+			if d.off >= len(d.data) || d.data[d.off] != '{' {
+				return errors.New("expected '{' for Any")
+			}
+			d.off++
+
+			first := true
+			for {
+				d.skipWhitespace()
+				if d.off >= len(d.data) {
+					return errors.New("unexpected EOF")
+				}
+				if d.data[d.off] == '}' {
+					d.off++
+					break
+				}
+				if !first {
+					if d.data[d.off] != ',' {
+						return errors.New("expected ','")
+					}
+					d.off++
+					d.skipWhitespace()
+				}
+				first = false
+
+				key, err := d.readStringBytes()
+				if err != nil {
+					return err
+				}
+				d.skipWhitespace()
+				if d.off >= len(d.data) || d.data[d.off] != ':' {
+					return errors.New("expected ':'")
+				}
+				d.off++
+
+				if string(key) == "@type" {
+					_, err := d.readStringBytes()
+					if err != nil {
+						return err
+					}
+				} else if string(key) == "value" {
+					if err := unmarshalCustomWellKnown(em.Interface(), d, opts); err != nil {
 						return err
 					}
 				} else {
-					return fmt.Errorf("unknown field in Any: %s", string(key))
+					if opts.DiscardUnknown {
+						if err := d.skipValue(); err != nil {
+							return err
+						}
+					} else {
+						return fmt.Errorf("unknown field in Any: %s", string(key))
+					}
 				}
 			}
 		}
@@ -2267,9 +2280,12 @@ func unmarshalAny(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptions
 		if err != nil {
 			return err
 		}
-		ptr := unsafe.Pointer(reflect.ValueOf(em.Interface()).Pointer())
+		ptr := reflect.ValueOf(em.Interface()).UnsafePointer()
 
-		var seenOneofs uint64
+		var seenOneofs oneofTracker
+		if table.oneofCount > 64 {
+			seenOneofs.slice = make([]bool, table.oneofCount)
+		}
 		seen := make(map[*fieldInstruction]struct{})
 		seenExts := make(map[string]struct{})
 		err = d.parseObject(func(key []byte) error {
@@ -2394,19 +2410,25 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 		if err != nil {
 			return protoreflect.Value{}, err
 		}
-		subMsgPtr := unsafe.Pointer(reflect.ValueOf(msg).Pointer())
+		subMsgPtr := reflect.ValueOf(msg).UnsafePointer()
 		if len(subTable.fields) > 64 {
 			subTable.resetIfNeeded(subMsgPtr)
 			seen := make(map[*fieldInstruction]struct{}, len(subTable.fields))
 			seenExts := make(map[string]struct{})
-			var seenOneofs uint64
+			var seenOneofs oneofTracker
+			if subTable.oneofCount > 64 {
+				seenOneofs.slice = make([]bool, subTable.oneofCount)
+			}
 			err = d.parseObject(func(key []byte) error {
 				return subTable.unmarshalField(subMsgPtr, d, opts, key, seen, seenExts, &seenOneofs)
 			})
 		} else {
 			var seen uint64
 			var seenExts map[string]struct{}
-			var seenOneofs uint64
+			var seenOneofs oneofTracker
+			if subTable.oneofCount > 64 {
+				seenOneofs.slice = make([]bool, subTable.oneofCount)
+			}
 			err = d.parseObject(func(key []byte) error {
 				if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
 					extName := string(key[1 : len(key)-1])
@@ -2432,11 +2454,11 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 				if inst.ftype == TypeOneofField && !d.peekNull() {
 					od := inst.fd.ContainingOneof()
 					if od != nil {
-						bit := uint64(1) << uint(od.Index())
-						if seenOneofs&bit != 0 {
+						idx := od.Index()
+						if seenOneofs.has(idx) {
 							return fmt.Errorf("duplicate oneof field: %s", key)
 						}
-						seenOneofs |= bit
+						seenOneofs.set(idx)
 					}
 				}
 				idx := uint(inst.index)
