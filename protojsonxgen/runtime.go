@@ -1552,13 +1552,45 @@ func WriteMap[K comparable, V any](e *Encoder, m map[K]V, keyToString func(K) st
 	for k := range m {
 		keys = append(keys, k)
 	}
+	switch ts := any(keys).(type) {
+	case []int32:
+		slices.SortFunc(ts, func(a, b int32) int {
+			return cmp.Compare(a, b)
+		})
+	case []int64:
+		slices.SortFunc(ts, func(a, b int64) int {
+			return cmp.Compare(a, b)
+		})
+	case []uint32:
+		slices.SortFunc(ts, func(a, b uint32) int {
+			return cmp.Compare(a, b)
+		})
+	case []uint64:
+		slices.SortFunc(ts, func(a, b uint64) int {
+			return cmp.Compare(a, b)
+		})
+	case []bool:
+		slices.SortFunc(ts, func(a, b bool) int {
+			if !a && b {
+				return -1
+			} else if a && !b {
+				return 1
+			}
+			return 0
+		})
+	default:
+		keyStrings := make(map[K]string, len(m))
+		for _, k := range keys {
+			keyStrings[k] = keyToString(k)
+		}
+		slices.SortFunc(keys, func(a, b K) int {
+			return cmp.Compare(keyStrings[a], keyStrings[b])
+		})
+	}
 	keyStrings := make(map[K]string, len(m))
 	for _, k := range keys {
 		keyStrings[k] = keyToString(k)
 	}
-	slices.SortFunc(keys, func(a, b K) int {
-		return cmp.Compare(keyStrings[a], keyStrings[b])
-	})
 	for i, k := range keys {
 		if i > 0 {
 			e.Byte(',')
@@ -1589,6 +1621,9 @@ func ReadMap[K comparable, V any](d *Decoder, m map[K]V, keyParse func(string) (
 		key, err := keyParse(keyStr)
 		if err != nil {
 			return err
+		}
+		if _, exists := m[key]; exists {
+			return DuplicateField(keyStr)
 		}
 		val, err := valDec(d)
 		if err != nil {

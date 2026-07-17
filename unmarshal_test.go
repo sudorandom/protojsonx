@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/sudorandom/protojsonx/internal/testpb"
+	conformance "github.com/sudorandom/protojsonx/internal/conformancepb"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -97,6 +98,51 @@ func TestUnmarshalRejectsDuplicateFieldNames(t *testing.T) {
 	var complex testpb.ComplexMessage
 	err := Unmarshal([]byte(`{"doubleField":1,"double_field":2}`), &complex)
 	require.Error(t, err, "expected duplicate field error for complex payload")
+}
+
+func TestUnmarshalRejectsDuplicateMapKeys(t *testing.T) {
+	data := []byte(`{"metadata":{"key":"first","key":"second"}}`)
+	var out testpb.UserProfile
+	err := Unmarshal(data, &out)
+	require.Error(t, err, "expected duplicate map key error")
+
+	// Also verify using the generated fast-path plugin unmarshaler
+	var outPlugin testpb.UserProfile
+	err = outPlugin.UnmarshalProtoJSONX(data)
+	require.Error(t, err, "expected duplicate map key error in generated fast-path")
+}
+
+func TestUnmarshalRepeatedEnumDiscardUnknown(t *testing.T) {
+	dataFast := []byte(`{"repeatedNestedEnum": ["FOO", "UNKNOWN_ENUM_VALUE", "BAR"]}`)
+	dataSlow := []byte(`{"repeatedNestedEnum": ["FOO", "UNKNOWN_ENUM_VALUE", "BAR"], "id": 123}`)
+
+	opts := UnmarshalOptions{DiscardUnknown: true}
+
+	// 1. Table-driven test
+	var msg1 conformance.TestAllTypesProto3
+	err := opts.Unmarshal(dataSlow, &msg1)
+	require.NoError(t, err)
+	assert.Equal(t, []conformance.TestAllTypesProto3_NestedEnum{
+		conformance.TestAllTypesProto3_FOO,
+		conformance.TestAllTypesProto3_BAR,
+	}, msg1.RepeatedNestedEnum)
+
+	// 2. Fast-path generated code tests
+	var msgFast conformance.TestAllTypesProto3
+	err = msgFast.UnmarshalProtoJSONXWithOptions(dataFast, true)
+	require.NoError(t, err)
+	assert.Equal(t, []conformance.TestAllTypesProto3_NestedEnum{
+		conformance.TestAllTypesProto3_FOO,
+		conformance.TestAllTypesProto3_BAR,
+	}, msgFast.RepeatedNestedEnum)
+
+	var msgSlow conformance.TestAllTypesProto3
+	err = msgSlow.UnmarshalProtoJSONXWithOptions(dataSlow, true)
+	require.NoError(t, err)
+	assert.Equal(t, []conformance.TestAllTypesProto3_NestedEnum{
+		conformance.TestAllTypesProto3_FOO,
+		conformance.TestAllTypesProto3_BAR,
+	}, msgSlow.RepeatedNestedEnum)
 }
 
 func TestUnmarshalResetsExistingMessage(t *testing.T) {

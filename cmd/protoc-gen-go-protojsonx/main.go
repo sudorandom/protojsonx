@@ -201,6 +201,7 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 			g.P("if !mapOK { break }")
 			g.P("v, err := d.ReadString()")
 			g.P("if err != nil { return false, err }")
+			g.P("if _, exists := m[k]; exists { return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(k) }")
 			g.P("m[k] = v")
 			g.P("}")
 			g.P(access, " = m")
@@ -230,8 +231,20 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 		if field.Desc.Kind() == protoreflect.MessageKind {
 			g.P("if d.ReadNull() { return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NullRepeatedMessage"}), "() }")
 		}
-		generateScalarOrMessageReadFast(g, helperPackage, field, "v", true)
-		g.P("values = append(values, v)")
+		if field.Desc.Kind() == protoreflect.EnumKind {
+			g.P("val, err := unmarshalEnum_", field.Enum.GoIdent.GoName, "(d)")
+			g.P("if err != nil {")
+			g.P("if err == ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}), " && discardUnknown {")
+			g.P("} else {")
+			g.P("return false, err")
+			g.P("}")
+			g.P("} else {")
+			g.P("values = append(values, val)")
+			g.P("}")
+		} else {
+			generateScalarOrMessageReadFast(g, helperPackage, field, "v", true)
+			g.P("values = append(values, v)")
+		}
 		g.P("}")
 		g.P(access, " = values")
 		g.P("}")
@@ -555,6 +568,9 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 			g.P("v, err := d.ReadString()")
 			g.P("if err != nil {")
 			g.P("return err")
+			g.P("}")
+			g.P("if _, exists := m[k]; exists {")
+			g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(k)")
 			g.P("}")
 			g.P("m[k] = v")
 			g.P("}")

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/sudorandom/protojsonx/internal/testpb"
+	conformance "github.com/sudorandom/protojsonx/internal/conformancepb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -283,4 +284,31 @@ func createCompatibilityMessage() *testpb.CompatibilityMessage {
 		OptionalString: proto.String("pointer string"),
 		OptionalInt32:  proto.Int32(42),
 	}
+}
+
+func TestMarshalMapKeyOrdering(t *testing.T) {
+	msg := &conformance.TestAllTypesProto3{
+		MapInt32Int32: map[int32]int32{
+			10: 100,
+			2:  20,
+			1:  10,
+		},
+		MapBoolBool: map[bool]bool{
+			true:  true,
+			false: false,
+		},
+	}
+
+	// 1. Table-driven / slow-path marshal
+	dataSlow, err := Marshal(msg)
+	require.NoError(t, err)
+
+	// 2. Fast-path generated marshal
+	dataFast, err := msg.MarshalProtoJSONX()
+	require.NoError(t, err)
+
+	// Both must be identical and sort keys correctly (numerically: 1, 2, 10; boolean: false, true)
+	expected := `{"mapInt32Int32":{"1":10,"2":20,"10":100},"mapBoolBool":{"false":false,"true":true}}`
+	assert.Contains(t, string(dataSlow), expected)
+	assert.Contains(t, string(dataFast), expected)
 }

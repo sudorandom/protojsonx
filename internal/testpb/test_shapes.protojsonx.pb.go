@@ -746,6 +746,9 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 				if err != nil {
 					return false, err
 				}
+				if _, exists := m[k]; exists {
+					return false, protojsonxgen.DuplicateField(k)
+				}
 				m[k] = v
 			}
 			x.MapStringString = m
@@ -1175,6 +1178,9 @@ func (x *ComplexMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 					v, err := d.ReadString()
 					if err != nil {
 						return err
+					}
+					if _, exists := m[k]; exists {
+						return protojsonxgen.DuplicateField(k)
 					}
 					m[k] = v
 				}
@@ -3192,7 +3198,6 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 				if !elemOK {
 					break
 				}
-				var v TestEnum
 				val, err := unmarshalEnum_TestEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -3200,9 +3205,8 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.RepeatedEnum = values
 		}
@@ -3987,7 +3991,6 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 				if !elemOK {
 					break
 				}
-				var v TestEnum
 				val, err := unmarshalEnum_TestEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -3995,9 +3998,8 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.RepeatedEnum = values
 		}

@@ -354,6 +354,9 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 				if err != nil {
 					return false, err
 				}
+				if _, exists := m[k]; exists {
+					return false, protojsonxgen.DuplicateField(k)
+				}
 				m[k] = v
 			}
 			x.Metadata = m
@@ -619,6 +622,9 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardU
 					v, err := d.ReadString()
 					if err != nil {
 						return err
+					}
+					if _, exists := m[k]; exists {
+						return protojsonxgen.DuplicateField(k)
 					}
 					m[k] = v
 				}

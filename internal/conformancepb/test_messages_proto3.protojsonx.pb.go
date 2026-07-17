@@ -2995,7 +2995,6 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				if !elemOK {
 					break
 				}
-				var v TestAllTypesProto3_NestedEnum
 				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -3003,9 +3002,8 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.RepeatedNestedEnum = values
 		}
@@ -3040,7 +3038,6 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				if !elemOK {
 					break
 				}
-				var v ForeignEnum
 				val, err := unmarshalEnum_ForeignEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -3048,9 +3045,8 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.RepeatedForeignEnum = values
 		}
@@ -3670,7 +3666,6 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				if !elemOK {
 					break
 				}
-				var v TestAllTypesProto3_NestedEnum
 				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -3678,9 +3673,8 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.PackedNestedEnum = values
 		}
@@ -4222,7 +4216,6 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				if !elemOK {
 					break
 				}
-				var v TestAllTypesProto3_NestedEnum
 				val, err := unmarshalEnum_TestAllTypesProto3_NestedEnum(d)
 				if err != nil {
 					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
@@ -4230,9 +4223,8 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 						return false, err
 					}
 				} else {
-					v = val
+					values = append(values, val)
 				}
-				values = append(values, v)
 			}
 			x.UnpackedNestedEnum = values
 		}
@@ -4566,6 +4558,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 				v, err := d.ReadString()
 				if err != nil {
 					return false, err
+				}
+				if _, exists := m[k]; exists {
+					return false, protojsonxgen.DuplicateField(k)
 				}
 				m[k] = v
 			}
@@ -9308,6 +9303,9 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 					v, err := d.ReadString()
 					if err != nil {
 						return err
+					}
+					if _, exists := m[k]; exists {
+						return protojsonxgen.DuplicateField(k)
 					}
 					m[k] = v
 				}
