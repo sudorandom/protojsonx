@@ -26,6 +26,7 @@ import (
 
 	"fmt"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"slices"
@@ -150,6 +151,13 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 	table, err := getTable(msg)
 	if err != nil {
 		return nil, err
+	}
+
+	if table.useProtojson {
+		return protojson.MarshalOptions{
+			EmitUnpopulated: o.EmitUnpopulated,
+			UseProtoNames:   o.UseProtoNames,
+		}.Marshal(msg)
 	}
 
 	if isCustomWellKnown(table.fullName) {

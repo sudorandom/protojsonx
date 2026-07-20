@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"math"
@@ -744,6 +745,12 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 	table, err := getTable(msg)
 	if err != nil {
 		return err
+	}
+
+	if table.useProtojson {
+		return protojson.UnmarshalOptions{
+			DiscardUnknown: o.DiscardUnknown,
+		}.Unmarshal(data, msg)
 	}
 
 	if isCustomWellKnown(table.fullName) {
