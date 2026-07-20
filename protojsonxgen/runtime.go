@@ -1437,6 +1437,9 @@ func parseDurationBytes(s []byte) (int64, int32, error) {
 	if len(intPart) == 0 {
 		return 0, 0, errors.New("invalid duration")
 	}
+	if len(intPart) > 1 && intPart[0] == '0' {
+		return 0, 0, errors.New("invalid duration: leading zeros not allowed")
+	}
 	var secs int64
 	for _, c := range intPart {
 		if c < '0' || c > '9' {
@@ -1504,6 +1507,9 @@ func ParseDuration(s string) (int64, int32, error) {
 	}
 	if intPart == "" {
 		return 0, 0, errors.New("invalid duration")
+	}
+	if len(intPart) > 1 && intPart[0] == '0' {
+		return 0, 0, errors.New("invalid duration: leading zeros not allowed")
 	}
 	secs, err := strconv.ParseInt(intPart, 10, 64)
 	if err != nil {

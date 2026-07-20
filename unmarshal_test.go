@@ -486,6 +486,21 @@ func TestUnmarshalEdgeCases(t *testing.T) {
 			payload: `{"stringField":"\u123"}`,
 			wantErr: true,
 		},
+		{
+			name:    "duration with leading zero",
+			payload: `{"durationField":"01s"}`,
+			wantErr: true,
+		},
+		{
+			name:    "duration with leading zero negative",
+			payload: `{"durationField":"-01.500s"}`,
+			wantErr: true,
+		},
+		{
+			name:    "duration valid single zero seconds",
+			payload: `{"durationField":"0.5s"}`,
+			wantErr: false,
+		},
 	}
 
 	for _, tc := range tests {
