@@ -100,6 +100,22 @@ func TestUnmarshalRejectsDuplicateFieldNames(t *testing.T) {
 	require.Error(t, err, "expected duplicate field error for complex payload")
 }
 
+func TestUnmarshalRejectsIntegerOverflow(t *testing.T) {
+	payloads := [][]byte{
+		[]byte(`{"int64Field": 20496382304121724020}`),
+		[]byte(`{"uint64Field": 20496382304121724020}`),
+	}
+	for _, data := range payloads {
+		var out testpb.ComplexMessage
+		err := Unmarshal(data, &out)
+		require.Error(t, err)
+
+		var outPlugin testpb.ComplexMessage
+		err = outPlugin.UnmarshalProtoJSONX(data)
+		require.Error(t, err)
+	}
+}
+
 func TestUnmarshalRejectsDuplicateMapKeys(t *testing.T) {
 	data := []byte(`{"metadata":{"key":"first","key":"second"}}`)
 	var out testpb.UserProfile

@@ -687,10 +687,19 @@ func (d *Decoder) readSimpleInt64Token() (int64, bool, error) {
 			}
 			break
 		}
-		u = u*10 + uint64(c-'0')
-		if (!neg && u > math.MaxInt64) || (neg && u > uint64(math.MaxInt64)+1) {
+		limit := uint64(math.MaxInt64)
+		if neg {
+			limit = uint64(math.MaxInt64) + 1
+		}
+		if u > limit/10 {
 			return 0, true, errors.New("integer out of range for int64")
 		}
+		u *= 10
+		digit := uint64(c - '0')
+		if u > limit-digit {
+			return 0, true, errors.New("integer out of range for int64")
+		}
+		u += digit
 		d.off++
 	}
 	if neg {
@@ -724,11 +733,15 @@ func (d *Decoder) readSimpleUint64Token() (uint64, bool, error) {
 			}
 			break
 		}
-		prev := u
-		u = u*10 + uint64(c-'0')
-		if u < prev {
+		if u > math.MaxUint64/10 {
 			return 0, true, errors.New("integer out of range for uint64")
 		}
+		u *= 10
+		digit := uint64(c - '0')
+		if u > math.MaxUint64-digit {
+			return 0, true, errors.New("integer out of range for uint64")
+		}
+		u += digit
 		d.off++
 	}
 	return u, true, nil
@@ -775,7 +788,13 @@ func (d *Decoder) readSimpleFloatToken() (float64, bool, error) {
 		return 0, false, nil
 	}
 	var intPart uint64
+	digits := 0
 	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
+		digits++
+		if digits > 17 {
+			d.off = start
+			return 0, false, nil
+		}
 		intPart = intPart*10 + uint64(d.data[d.off]-'0')
 		d.off++
 	}
