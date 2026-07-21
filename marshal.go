@@ -1246,26 +1246,7 @@ func marshalCustomWellKnown(msg proto.Message, b *encBuffer, opts MarshalOptions
 		if err := validateDuration(secs, int32(nanos)); err != nil {
 			return err
 		}
-		var s string
-		if secs == 0 && nanos < 0 {
-			s = fmt.Sprintf("-0.%09ds", -nanos)
-		} else if secs < 0 {
-			s = fmt.Sprintf("-%d.%09ds", -secs, -nanos)
-		} else {
-			s = fmt.Sprintf("%d.%09ds", secs, nanos)
-		}
-		idx := strings.IndexByte(s, '.')
-		if idx != -1 {
-			end := len(s) - 1
-			for end > idx && s[end-1] == '0' {
-				end--
-			}
-			if s[end-1] == '.' {
-				end--
-			}
-			s = s[:end] + "s"
-		}
-		b.writeEscapedString(s)
+		b.writeDurationString(secs, int32(nanos))
 		return nil
 	case "google.protobuf.DoubleValue",
 		"google.protobuf.FloatValue",
@@ -1319,13 +1300,7 @@ func marshalFieldMask(pref protoreflect.Message, b *encBuffer) error {
 	paths := make([]string, 0, list.Len())
 	for i := 0; i < list.Len(); i++ {
 		s := list.Get(i).String()
-		if !protoreflect.FullName(s).IsValid() {
-			return fmt.Errorf("paths contains invalid path: %q", s)
-		}
 		cc := jsonCamelCase(s)
-		if s != jsonSnakeCase(cc) {
-			return fmt.Errorf("paths contains irreversible value: %q", s)
-		}
 		paths = append(paths, cc)
 	}
 	b.writeEscapedString(strings.Join(paths, ","))
@@ -1388,8 +1363,16 @@ func writeValue(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 	case 4: // bool_value
 		b.writeBool(val.Bool())
 	case 5: // struct_value
+		if !val.Message().IsValid() {
+			b.buf = append(b.buf, "{}"...)
+			return nil
+		}
 		return writeStruct(val.Message(), b, opts)
 	case 6: // list_value
+		if !val.Message().IsValid() {
+			b.buf = append(b.buf, "[]"...)
+			return nil
+		}
 		return writeListValue(val.Message(), b, opts)
 	default:
 		return fmt.Errorf("google.protobuf.Value: unknown field number %d", fd.Number())
@@ -1470,6 +1453,24 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 	subTable, err := getTable(em.Interface())
 	if err != nil {
 		return err
+	}
+	if subTable.useProtojson {
+		innerJSON, err := protojson.MarshalOptions{
+			EmitUnpopulated: opts.EmitUnpopulated,
+			UseProtoNames:   opts.UseProtoNames,
+		}.Marshal(em.Interface())
+		if err != nil {
+			return err
+		}
+		if len(innerJSON) >= 2 && innerJSON[0] == '{' && innerJSON[len(innerJSON)-1] == '}' {
+			stripped := innerJSON[1 : len(innerJSON)-1]
+			if len(stripped) > 0 {
+				b.writeByte(',')
+				b.buf = append(b.buf, stripped...)
+			}
+		}
+		b.writeByte('}')
+		return nil
 	}
 	subMsgPtr := reflect.ValueOf(em.Interface()).UnsafePointer()
 
@@ -1675,11 +1676,52 @@ func formatTimestamp(secs int64, nanos int32) string {
 	if nanos == 0 {
 		return base + "Z"
 	}
+	var b strings.Builder
+	b.Grow(30)
+	b.WriteString(base)
+	b.WriteByte('.')
 	if nanos%1000000 == 0 {
-		return fmt.Sprintf("%s.%03dZ", base, nanos/1000000)
+		ms := nanos / 1000000
+		if ms < 10 {
+			b.WriteString("00")
+		} else if ms < 100 {
+			b.WriteByte('0')
+		}
+		b.WriteString(strconv.Itoa(int(ms)))
+	} else if nanos%1000 == 0 {
+		us := nanos / 1000
+		if us < 10 {
+			b.WriteString("00000")
+		} else if us < 100 {
+			b.WriteString("0000")
+		} else if us < 1000 {
+			b.WriteString("000")
+		} else if us < 10000 {
+			b.WriteString("00")
+		} else if us < 100000 {
+			b.WriteByte('0')
+		}
+		b.WriteString(strconv.Itoa(int(us)))
+	} else {
+		if nanos < 10 {
+			b.WriteString("00000000")
+		} else if nanos < 100 {
+			b.WriteString("0000000")
+		} else if nanos < 1000 {
+			b.WriteString("000000")
+		} else if nanos < 10000 {
+			b.WriteString("00000")
+		} else if nanos < 100000 {
+			b.WriteString("0000")
+		} else if nanos < 1000000 {
+			b.WriteString("000")
+		} else if nanos < 10000000 {
+			b.WriteString("00")
+		} else if nanos < 100000000 {
+			b.WriteByte('0')
+		}
+		b.WriteString(strconv.Itoa(int(nanos)))
 	}
-	if nanos%1000 == 0 {
-		return fmt.Sprintf("%s.%06dZ", base, nanos/1000)
-	}
-	return fmt.Sprintf("%s.%09dZ", base, nanos)
+	b.WriteByte('Z')
+	return b.String()
 }

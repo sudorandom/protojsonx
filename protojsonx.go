@@ -320,6 +320,10 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 				inst.ftype = TypeRepeatedString
 			} else if fd.Kind() == protoreflect.MessageKind {
 				inst.ftype = TypeRepeatedMessage
+				if sf.Type.Kind() != reflect.Slice {
+					table.useProtojson = true
+					return table, nil
+				}
 				sliceType := sf.Type
 				elemType := sliceType.Elem()
 				if elemType.Kind() == reflect.Pointer {
@@ -572,8 +576,15 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 	tableCache[structType] = table
 	cacheMutex.Unlock()
 
-	zeroPtr := reflect.New(structType).Interface().(proto.Message)
-	fullTable, err := compileTable(zeroPtr)
+	zeroMsg, ok := reflect.New(structType).Interface().(proto.Message)
+	if !ok {
+		cacheMutex.Lock()
+		table.useProtojson = true
+		close(table.ready)
+		cacheMutex.Unlock()
+		return table
+	}
+	fullTable, err := compileTable(zeroMsg)
 
 	cacheMutex.Lock()
 	if fullTable != nil {
