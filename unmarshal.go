@@ -1928,6 +1928,9 @@ func unmarshalFieldMask(pref protoreflect.Message, d *decBuffer) error {
 	list.Truncate(0)
 	for _, s0 := range parts {
 		s := jsonSnakeCase(s0)
+		if strings.Contains(s0, "_") || !protoreflect.FullName(s).IsValid() {
+			return fmt.Errorf("paths contains invalid path: %q", s0)
+		}
 		list.Append(protoreflect.ValueOfString(s))
 	}
 	return nil

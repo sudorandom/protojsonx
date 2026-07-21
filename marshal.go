@@ -1300,7 +1300,13 @@ func marshalFieldMask(pref protoreflect.Message, b *encBuffer) error {
 	paths := make([]string, 0, list.Len())
 	for i := 0; i < list.Len(); i++ {
 		s := list.Get(i).String()
+		if !protoreflect.FullName(s).IsValid() {
+			return fmt.Errorf("paths contains invalid path: %q", s)
+		}
 		cc := jsonCamelCase(s)
+		if s != jsonSnakeCase(cc) {
+			return fmt.Errorf("paths contains irreversible value: %q", s)
+		}
 		paths = append(paths, cc)
 	}
 	b.writeEscapedString(strings.Join(paths, ","))
