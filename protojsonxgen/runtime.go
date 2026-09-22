@@ -91,10 +91,23 @@ func NewEncoder() *Encoder {
 	return e
 }
 
+func (e *Encoder) Free() {
+	if e == nil {
+		return
+	}
+	if cap(e.buf) <= 65536 {
+		e.buf = e.buf[:0]
+		encPool.Put(e)
+	}
+}
+
 func (e *Encoder) Bytes() []byte {
 	out := make([]byte, len(e.buf))
 	copy(out, e.buf)
-	encPool.Put(e)
+	if cap(e.buf) <= 65536 {
+		e.buf = e.buf[:0]
+		encPool.Put(e)
+	}
 	return out
 }
 
@@ -1678,7 +1691,7 @@ func UnmarshalMessageMapValue[V any, PT interface {
 	proto.Message
 }](d *Decoder, discardUnknown bool) (PT, error) {
 	if d.ReadNull() {
-		return nil, nil
+		return nil, errors.New("map value cannot be null")
 	}
 	var v V
 	var pt PT = &v

@@ -114,7 +114,7 @@ func BenchmarkProtojsonx_Marshal(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, err := Marshal(p)
+		_, err := MarshalOptions{DisableFastPath: true}.Marshal(p)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -145,7 +145,7 @@ func BenchmarkProtojsonx_Unmarshal(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var out testpb.UserProfile
-		err := UnmarshalOptions{}.Unmarshal(data, &out)
+		err := UnmarshalOptions{DisableFastPath: true}.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -299,7 +299,7 @@ func BenchmarkComplexProtojsonx_Marshal(b *testing.B) {
 	b.ResetTimer()
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_, err := Marshal(p)
+		_, err := MarshalOptions{DisableFastPath: true}.Marshal(p)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -330,7 +330,7 @@ func BenchmarkComplexProtojsonx_Unmarshal(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		var out testpb.ComplexMessage
-		err := UnmarshalOptions{}.Unmarshal(data, &out)
+		err := UnmarshalOptions{DisableFastPath: true}.Unmarshal(data, &out)
 		if err != nil {
 			b.Fatal(err)
 		}

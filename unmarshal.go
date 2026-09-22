@@ -31,7 +31,8 @@ import (
 )
 
 type UnmarshalOptions struct {
-	DiscardUnknown bool
+	DiscardUnknown  bool
+	DisableFastPath bool
 }
 
 func allocate(t reflect.Type, _ UnmarshalOptions) reflect.Value {
@@ -520,6 +521,15 @@ func (d *decBuffer) unmarshalWrapper(opts UnmarshalOptions, inst *fieldInstructi
 	return readVal()
 }
 
+func (d *decBuffer) readRawValue() ([]byte, error) {
+	d.skipWhitespace()
+	start := d.off
+	if err := d.skipValue(); err != nil {
+		return nil, err
+	}
+	return d.data[start:d.off], nil
+}
+
 // skipValue validates and skips one complete JSON value. It is used only for
 // DiscardUnknown, so it favors correctness over micro-optimizing the hot path.
 func (d *decBuffer) skipValue() error {
@@ -735,11 +745,13 @@ func (o UnmarshalOptions) Unmarshal(data []byte, msg proto.Message) error {
 		return errors.New("unmarshal target must be non-nil pointer")
 	}
 
-	if u, ok := msg.(interface {
-		ProtoJSONXFastPath()
-		UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error
-	}); ok {
-		return u.UnmarshalProtoJSONXWithOptions(data, o.DiscardUnknown)
+	if !o.DisableFastPath {
+		if u, ok := msg.(interface {
+			ProtoJSONXFastPath()
+			UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error
+		}); ok {
+			return u.UnmarshalProtoJSONXWithOptions(data, o.DiscardUnknown)
+		}
 	}
 
 	table, err := getTable(msg)
@@ -786,6 +798,10 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 	}
 	for _, inst := range table.fields {
 		fieldPtr := unsafe.Add(ptr, inst.offset)
+		if inst.goPointer {
+			*(*unsafe.Pointer)(fieldPtr) = nil
+			continue
+		}
 		switch inst.ftype {
 		case TypeString:
 			*(*string)(fieldPtr) = ""
@@ -825,8 +841,11 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 			*(*[][]byte)(fieldPtr) = nil
 		case TypeMapStringString:
 			*(*map[string]string)(fieldPtr) = nil
-		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty, TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
 			*(*unsafe.Pointer)(fieldPtr) = nil
+		case TypeOneofField, TypeMapField:
+			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			pref.Clear(inst.fd)
 		case TypeRepeatedMessage:
 			*(*[]unsafe.Pointer)(fieldPtr) = nil
 		}
@@ -846,6 +865,10 @@ func (table *MessageTable) clearMissing(ptr unsafe.Pointer, seen uint64) {
 // clearField writes the Go zero value for one supported field shape.
 func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction) {
 	fieldPtr := unsafe.Add(ptr, inst.offset)
+	if inst.goPointer {
+		*(*unsafe.Pointer)(fieldPtr) = nil
+		return
+	}
 	switch inst.ftype {
 	case TypeString:
 		*(*string)(fieldPtr) = ""
@@ -900,6 +923,12 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 	for _, inst := range table.fields {
 		fieldPtr := unsafe.Add(ptr, inst.offset)
+		if inst.goPointer {
+			if *(*unsafe.Pointer)(fieldPtr) != nil {
+				return false
+			}
+			continue
+		}
 		switch inst.ftype {
 		case TypeString:
 			if *(*string)(fieldPtr) != "" {
@@ -977,8 +1006,18 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 			if len(*(*map[string]string)(fieldPtr)) != 0 {
 				return false
 			}
-		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty:
+		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty, TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
 			if *(*unsafe.Pointer)(fieldPtr) != nil {
+				return false
+			}
+		case TypeOneofField:
+			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			if pref.Has(inst.fd) {
+				return false
+			}
+		case TypeMapField:
+			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			if pref.Get(inst.fd).Map().Len() != 0 {
 				return false
 			}
 		case TypeRepeatedMessage:
@@ -1445,6 +1484,14 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			newVal := allocate(inst.msgTable.goType, opts)
 			*subMsgPtrPtr = newVal.UnsafePointer()
 		}
+		if inst.msgTable.useProtojson {
+			raw, err := d.readRawValue()
+			if err != nil {
+				return err
+			}
+			subMsg := reflect.NewAt(inst.msgTable.goType, *subMsgPtrPtr).Interface().(proto.Message)
+			return protojson.UnmarshalOptions{DiscardUnknown: opts.DiscardUnknown}.Unmarshal(raw, subMsg)
+		}
 		return inst.msgTable.unmarshalFrom(*subMsgPtrPtr, d, opts)
 	case TypeTimestamp:
 		subMsgPtrPtr := (*unsafe.Pointer)(fieldPtr)
@@ -1710,6 +1757,13 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if isCustomWellKnown(inst.msgTable.fullName) {
 				msg := newElem.Interface().(proto.Message)
 				err = unmarshalCustomWellKnown(msg, d, opts)
+			} else if inst.msgTable.useProtojson {
+				raw, errRaw := d.readRawValue()
+				if errRaw != nil {
+					return errRaw
+				}
+				msg := newElem.Interface().(proto.Message)
+				err = protojson.UnmarshalOptions{DiscardUnknown: opts.DiscardUnknown}.Unmarshal(raw, msg)
 			} else {
 				err = inst.msgTable.unmarshalFrom(newElem.UnsafePointer(), d, opts)
 			}
@@ -2290,6 +2344,15 @@ func unmarshalAny(pref protoreflect.Message, d *decBuffer, opts UnmarshalOptions
 		if err != nil {
 			return err
 		}
+		if table.useProtojson {
+			raw, err := d.readRawValue()
+			if err != nil {
+				return err
+			}
+			return protojson.UnmarshalOptions{
+				DiscardUnknown: opts.DiscardUnknown,
+			}.Unmarshal(raw, pref.Interface())
+		}
 		ptr := reflect.ValueOf(em.Interface()).UnsafePointer()
 
 		var seenOneofs oneofTracker
@@ -2420,6 +2483,16 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 		if err != nil {
 			return protoreflect.Value{}, err
 		}
+		if subTable.useProtojson {
+			raw, err := d.readRawValue()
+			if err != nil {
+				return protoreflect.Value{}, err
+			}
+			if err := (protojson.UnmarshalOptions{DiscardUnknown: opts.DiscardUnknown}.Unmarshal(raw, msg)); err != nil {
+				return protoreflect.Value{}, err
+			}
+			return protoreflect.ValueOfMessage(target), nil
+		}
 		subMsgPtr := reflect.ValueOf(msg).UnsafePointer()
 		if len(subTable.fields) > 64 {
 			subTable.resetIfNeeded(subMsgPtr)
@@ -2547,6 +2620,9 @@ func unmarshalMap(pref protoreflect.Message, inst *fieldInstruction, d *decBuffe
 		var target protoreflect.Message
 		val := m.NewValue()
 		if inst.fd.MapValue().Kind() == protoreflect.MessageKind {
+			if d.peekNull() && inst.fd.MapValue().Message().FullName() != "google.protobuf.Value" {
+				return errors.New("map value cannot be null")
+			}
 			target = val.Message()
 		}
 		parsedVal, err := unmarshalProtoreflectValue(inst.fd.MapValue(), target, d, opts)

@@ -6,6 +6,7 @@
 package testpb
 
 import (
+	errors "errors"
 	protojsonxgen "github.com/sudorandom/protojsonx/protojsonxgen"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -25,8 +26,12 @@ const _ = "protojsonx generated scaffold 0.1.0"
 func (x *ComplexMessage) ProtoJSONXFastPath() {}
 
 func (x *ComplexMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -37,6 +42,9 @@ func (x *ComplexMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *ComplexMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = ComplexMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -1202,8 +1210,12 @@ func (x *ComplexMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 func (x *ChildMessage) ProtoJSONXFastPath() {}
 
 func (x *ChildMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -1214,6 +1226,9 @@ func (x *ChildMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *ChildMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = ChildMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -1368,8 +1383,12 @@ func (x *ChildMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discard
 func (x *SpecMessage) ProtoJSONXFastPath() {}
 
 func (x *SpecMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -1380,6 +1399,9 @@ func (x *SpecMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *SpecMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = SpecMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -2246,8 +2268,12 @@ func (x *SpecMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardU
 func (x *StructMessage) ProtoJSONXFastPath() {}
 
 func (x *StructMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -2258,6 +2284,9 @@ func (x *StructMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *StructMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = StructMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -2398,8 +2427,12 @@ func (x *StructMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discar
 func (x *ValueMessage) ProtoJSONXFastPath() {}
 
 func (x *ValueMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -2410,6 +2443,9 @@ func (x *ValueMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *ValueMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = ValueMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -2550,8 +2586,12 @@ func (x *ValueMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discard
 func (x *ListValueMessage) ProtoJSONXFastPath() {}
 
 func (x *ListValueMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -2562,6 +2602,9 @@ func (x *ListValueMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *ListValueMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = ListValueMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -2702,8 +2745,12 @@ func (x *ListValueMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, dis
 func (x *RepeatedScalarsMessage) ProtoJSONXFastPath() {}
 
 func (x *RepeatedScalarsMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -2714,6 +2761,9 @@ func (x *RepeatedScalarsMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *RepeatedScalarsMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = RepeatedScalarsMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -3552,8 +3602,12 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decode
 func (x *CompatibilityMessage) ProtoJSONXFastPath() {}
 
 func (x *CompatibilityMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -3564,6 +3618,9 @@ func (x *CompatibilityMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *CompatibilityMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = CompatibilityMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()

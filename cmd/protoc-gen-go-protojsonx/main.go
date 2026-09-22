@@ -68,8 +68,10 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 
 	g.P("func (x *", message.GoIdent, ") MarshalProtoJSONX() ([]byte, error) {")
 	if supportsGeneratedMarshal(message) {
+		g.P("if x == nil { return nil, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "errors", GoName: "New"}), "(\"marshal target must be non-nil pointer\") }")
 		g.P("e := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NewEncoder"}), "()")
 		g.P("if err := x.marshalProtoJSONXTo(e); err != nil {")
+		g.P("e.Free()")
 		g.P("return nil, err")
 		g.P("}")
 		g.P("return e.Bytes(), nil")
@@ -84,6 +86,7 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 	g.P()
 	g.P("func (x *", message.GoIdent, ") UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {")
 	if supportsGeneratedUnmarshal(message) {
+		g.P("if x == nil { return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: "errors", GoName: "New"}), "(\"unmarshal target must be non-nil pointer\") }")
 		decoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "NewDecoder"})
 		g.P("d := ", decoderIdent, "(data)")
 		g.P("*x = ", message.GoIdent, "{}")
@@ -1130,6 +1133,9 @@ func generateEnumMarshal(g *protogen.GeneratedFile, field *protogen.Field, value
 }
 
 func supportsGeneratedMarshal(message *protogen.Message) bool {
+	if message.Desc.ExtensionRanges().Len() > 0 {
+		return false
+	}
 	for _, field := range message.Fields {
 		if field.Desc.IsMap() {
 			keyKind := field.Desc.MapKey().Kind()

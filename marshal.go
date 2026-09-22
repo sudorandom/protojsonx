@@ -41,6 +41,16 @@ var encBufPool = sync.Pool{
 	},
 }
 
+func putEncBuffer(eb *encBuffer) {
+	if eb == nil {
+		return
+	}
+	if cap(eb.buf) <= 65536 {
+		eb.buf = eb.buf[:0]
+		encBufPool.Put(eb)
+	}
+}
+
 type encBuffer struct {
 	buf []byte
 }
@@ -126,6 +136,7 @@ func (b *encBuffer) writeBool(v bool) {
 type MarshalOptions struct {
 	EmitUnpopulated bool
 	UseProtoNames   bool
+	DisableFastPath bool
 }
 
 // Marshal message with default options
@@ -139,7 +150,7 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 		return nil, errors.New("marshal target must be non-nil pointer")
 	}
 
-	if o == (MarshalOptions{}) {
+	if !o.DisableFastPath && !o.EmitUnpopulated && !o.UseProtoNames {
 		if m, ok := msg.(interface {
 			ProtoJSONXFastPath()
 			MarshalProtoJSONX() ([]byte, error)
@@ -165,12 +176,12 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 		eb.buf = eb.buf[:0]
 		err := marshalCustomWellKnown(msg, eb, o)
 		if err != nil {
-			encBufPool.Put(eb)
+			putEncBuffer(eb)
 			return nil, err
 		}
 		data := make([]byte, len(eb.buf))
 		copy(data, eb.buf)
-		encBufPool.Put(eb)
+		putEncBuffer(eb)
 		return data, nil
 	}
 
@@ -181,13 +192,13 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 
 	err = table.marshalTo(ptr, eb, o)
 	if err != nil {
-		encBufPool.Put(eb)
+		putEncBuffer(eb)
 		return nil, err
 	}
 
 	out := make([]byte, len(eb.buf))
 	copy(out, eb.buf)
-	encBufPool.Put(eb)
+	putEncBuffer(eb)
 	return out, nil
 }
 
@@ -491,7 +502,9 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				if present {
+				if !inst.isOptional && len(val) == 0 {
+					b.buf = append(b.buf, `""`...)
+				} else if present {
 					b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
 				} else {
 					b.buf = append(b.buf, "null"...)
@@ -769,9 +782,21 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				err := inst.msgTable.marshalTo(subMsgPtr, b, opts)
-				if err != nil {
-					return err
+				if inst.msgTable.useProtojson {
+					subMsg := reflect.NewAt(inst.msgTable.goType, subMsgPtr).Interface().(proto.Message)
+					subData, err := protojson.MarshalOptions{
+						EmitUnpopulated: opts.EmitUnpopulated,
+						UseProtoNames:   opts.UseProtoNames,
+					}.Marshal(subMsg)
+					if err != nil {
+						return err
+					}
+					b.buf = append(b.buf, subData...)
+				} else {
+					err := inst.msgTable.marshalTo(subMsgPtr, b, opts)
+					if err != nil {
+						return err
+					}
 				}
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
@@ -1121,6 +1146,16 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 						if isCustomWellKnown(inst.msgTable.fullName) {
 							msg := reflect.NewAt(inst.elemType, itemPtr).Interface().(proto.Message)
 							err = marshalCustomWellKnown(msg, b, opts)
+						} else if inst.msgTable.useProtojson {
+							msg := reflect.NewAt(inst.elemType, itemPtr).Interface().(proto.Message)
+							var subData []byte
+							subData, err = protojson.MarshalOptions{
+								EmitUnpopulated: opts.EmitUnpopulated,
+								UseProtoNames:   opts.UseProtoNames,
+							}.Marshal(msg)
+							if err == nil {
+								b.buf = append(b.buf, subData...)
+							}
 						} else {
 							if inst.msgNeedsWait {
 								if err = inst.msgTable.wait(); err != nil {
@@ -1159,40 +1194,47 @@ func (table *MessageTable) marshalExtensions(ptr unsafe.Pointer, pref protorefle
 	if pref == nil {
 		pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
 	}
-	var extErr error
+	type extItem struct {
+		fd  protoreflect.FieldDescriptor
+		val protoreflect.Value
+	}
+	var exts []extItem
 	pref.Range(func(fd protoreflect.FieldDescriptor, val protoreflect.Value) bool {
-		if !fd.IsExtension() {
-			return true
+		if fd.IsExtension() {
+			exts = append(exts, extItem{fd: fd, val: val})
 		}
+		return true
+	})
+	slices.SortFunc(exts, func(a, b extItem) int {
+		return int(a.fd.Number()) - int(b.fd.Number())
+	})
+	for _, ext := range exts {
 		if wroteAny {
 			b.writeByte(',')
 		}
 		b.buf = append(b.buf, `"[`...)
-		b.buf = append(b.buf, string(fd.FullName())...)
+		b.buf = append(b.buf, string(ext.fd.FullName())...)
 		b.buf = append(b.buf, `]":`...)
-		if fd.IsList() {
+		if ext.fd.IsList() {
 			b.writeByte('[')
-			list := val.List()
+			list := ext.val.List()
 			for j := 0; j < list.Len(); j++ {
 				if j > 0 {
 					b.writeByte(',')
 				}
-				if err := marshalProtoreflectValue(list.Get(j), fd, b, opts); err != nil {
-					extErr = err
-					return false
+				if err := marshalProtoreflectValue(list.Get(j), ext.fd, b, opts); err != nil {
+					return false, err
 				}
 			}
 			b.writeByte(']')
 		} else {
-			if err := marshalProtoreflectValue(val, fd, b, opts); err != nil {
-				extErr = err
-				return false
+			if err := marshalProtoreflectValue(ext.val, ext.fd, b, opts); err != nil {
+				return false, err
 			}
 		}
 		wroteAny = true
-		return true
-	})
-	return wroteAny, extErr
+	}
+	return wroteAny, nil
 }
 
 func isCustomWellKnown(fullName protoreflect.FullName) bool {
@@ -1541,6 +1583,17 @@ func marshalProtoreflectValue(val protoreflect.Value, fd protoreflect.FieldDescr
 		subTable, err := getTable(msg)
 		if err != nil {
 			return err
+		}
+		if subTable.useProtojson {
+			subData, err := protojson.MarshalOptions{
+				EmitUnpopulated: opts.EmitUnpopulated,
+				UseProtoNames:   opts.UseProtoNames,
+			}.Marshal(msg)
+			if err != nil {
+				return err
+			}
+			b.buf = append(b.buf, subData...)
+			return nil
 		}
 		subMsgPtr := reflect.ValueOf(msg).UnsafePointer()
 		return subTable.marshalTo(subMsgPtr, b, opts)

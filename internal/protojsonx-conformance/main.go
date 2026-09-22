@@ -158,7 +158,10 @@ func unmarshalJSONData(data []byte, msg proto.Message, discardUnknown bool) erro
 			return generated.UnmarshalProtoJSONX(data)
 		}
 	}
-	return (protojsonx.UnmarshalOptions{DiscardUnknown: discardUnknown}).Unmarshal(data, msg)
+	return (protojsonx.UnmarshalOptions{
+		DiscardUnknown:  discardUnknown,
+		DisableFastPath: conformanceMode != "plugin",
+	}).Unmarshal(data, msg)
 }
 
 func marshalJSON(msg proto.Message) ([]byte, error) {
@@ -171,7 +174,9 @@ func marshalJSONData(msg proto.Message) ([]byte, error) {
 			return generated.MarshalProtoJSONX()
 		}
 	}
-	return protojsonx.Marshal(msg)
+	return (protojsonx.MarshalOptions{
+		DisableFastPath: conformanceMode != "plugin",
+	}).Marshal(msg)
 }
 
 

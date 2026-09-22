@@ -126,7 +126,7 @@ func TestGeneratedMarshalMatchesRuntime(t *testing.T) {
 		{
 			name: "user profile",
 			runtime: func() ([]byte, error) {
-				return Marshal(createUserProfile())
+				return MarshalOptions{DisableFastPath: true}.Marshal(createUserProfile())
 			},
 			generated: func() ([]byte, error) {
 				return createUserProfile().MarshalProtoJSONX()
@@ -135,7 +135,7 @@ func TestGeneratedMarshalMatchesRuntime(t *testing.T) {
 		{
 			name: "complex message",
 			runtime: func() ([]byte, error) {
-				return Marshal(createBenchComplexMessage())
+				return MarshalOptions{DisableFastPath: true}.Marshal(createBenchComplexMessage())
 			},
 			generated: func() ([]byte, error) {
 				return createBenchComplexMessage().MarshalProtoJSONX()
@@ -144,7 +144,7 @@ func TestGeneratedMarshalMatchesRuntime(t *testing.T) {
 		{
 			name: "compatibility message",
 			runtime: func() ([]byte, error) {
-				return Marshal(createCompatibilityMessage())
+				return MarshalOptions{DisableFastPath: true}.Marshal(createCompatibilityMessage())
 			},
 			generated: func() ([]byte, error) {
 				return createCompatibilityMessage().MarshalProtoJSONX()
@@ -220,7 +220,7 @@ func TestGeneratedUnmarshalMatchesRuntime(t *testing.T) {
 			default:
 				t.Fatalf("unsupported test message %T", tt.msg)
 			}
-			require.NoError(t, Unmarshal(data, runtimeOut))
+			require.NoError(t, UnmarshalOptions{DisableFastPath: true}.Unmarshal(data, runtimeOut))
 
 			generatedOut := tt.new()
 			require.NoError(t, generatedOut.UnmarshalProtoJSONX(data))
@@ -244,7 +244,7 @@ func TestConcurrentColdTableUse(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			data, err := Marshal(createComplexMessage())
+			data, err := MarshalOptions{DisableFastPath: true}.Marshal(createComplexMessage())
 			if err != nil {
 				errs <- err
 				return
@@ -300,7 +300,7 @@ func TestMarshalMapKeyOrdering(t *testing.T) {
 	}
 
 	// 1. Table-driven / slow-path marshal
-	dataSlow, err := Marshal(msg)
+	dataSlow, err := MarshalOptions{DisableFastPath: true}.Marshal(msg)
 	require.NoError(t, err)
 
 	// 2. Fast-path generated marshal

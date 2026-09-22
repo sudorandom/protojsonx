@@ -6,6 +6,7 @@
 package conformance
 
 import (
+	errors "errors"
 	protojsonxgen "github.com/sudorandom/protojsonx/protojsonxgen"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
@@ -24,8 +25,12 @@ const _ = "protojsonx generated scaffold 0.1.0"
 func (x *TestAllTypesProto3) ProtoJSONXFastPath() {}
 
 func (x *TestAllTypesProto3) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -36,6 +41,9 @@ func (x *TestAllTypesProto3) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *TestAllTypesProto3) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = TestAllTypesProto3{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -10987,8 +10995,12 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 func (x *TestAllTypesProto3_NestedMessage) ProtoJSONXFastPath() {}
 
 func (x *TestAllTypesProto3_NestedMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -10999,6 +11011,9 @@ func (x *TestAllTypesProto3_NestedMessage) UnmarshalProtoJSONX(data []byte) erro
 }
 
 func (x *TestAllTypesProto3_NestedMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = TestAllTypesProto3_NestedMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -11179,8 +11194,12 @@ func (x *TestAllTypesProto3_NestedMessage) unmarshalProtoJSONXFrom(d *protojsonx
 func (x *ForeignMessage) ProtoJSONXFastPath() {}
 
 func (x *ForeignMessage) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -11191,6 +11210,9 @@ func (x *ForeignMessage) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *ForeignMessage) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = ForeignMessage{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -11305,8 +11327,12 @@ func (x *ForeignMessage) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, disca
 func (x *NullHypothesisProto3) ProtoJSONXFastPath() {}
 
 func (x *NullHypothesisProto3) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -11317,6 +11343,9 @@ func (x *NullHypothesisProto3) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *NullHypothesisProto3) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = NullHypothesisProto3{}
 	off, depth := d.Mark()
@@ -11381,8 +11410,12 @@ func (x *NullHypothesisProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder,
 func (x *EnumOnlyProto3) ProtoJSONXFastPath() {}
 
 func (x *EnumOnlyProto3) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -11393,6 +11426,9 @@ func (x *EnumOnlyProto3) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *EnumOnlyProto3) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = EnumOnlyProto3{}
 	off, depth := d.Mark()

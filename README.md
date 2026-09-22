@@ -50,7 +50,7 @@ Benchmarks run on an Apple M1 Pro (8 cores, Go 1.26.4), comparing standard `prot
 - **Unsafe field access**: Both generated code and the reflection runtime read/write generated struct fields with precomputed `unsafe` offsets instead of reflective field lookup.
 - **Specialized JSON parser**: Unmarshal uses a small parser tailored to the supported protojson field shapes. It validates skipped unknown JSON values, rejects duplicate known fields, handles `null` as the protobuf default, and parses known numeric tokens without routing every field through `encoding/json`.
 - **Low-allocation marshal path**: JSON is appended directly into a pooled byte buffer, with deterministic map-key sorting and one owned copy returned to the caller.
-- **Full protojson compatibility**: All standard features and Well-Known Types are supported natively. If generated code is not found for a type, the library automatically falls back to the table-driven reflection engine at runtime.
+- **Full protojson compatibility**: All standard features and Well-Known Types are supported natively. If generated code is not found for a type, the library automatically falls back to the table-driven reflection engine at runtime (and delegates gracefully to standard `protojson` if unsupported schemas or features are encountered).
 
 ## Install
 

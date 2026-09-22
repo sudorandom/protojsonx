@@ -6,6 +6,7 @@
 package testpb
 
 import (
+	errors "errors"
 	protojsonxgen "github.com/sudorandom/protojsonx/protojsonxgen"
 )
 
@@ -17,8 +18,12 @@ const _ = "protojsonx generated scaffold 0.1.0"
 func (x *UserProfile) ProtoJSONXFastPath() {}
 
 func (x *UserProfile) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -29,6 +34,9 @@ func (x *UserProfile) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *UserProfile) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = UserProfile{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -712,8 +720,12 @@ func (x *UserProfile) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardU
 func (x *Address) ProtoJSONXFastPath() {}
 
 func (x *Address) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -724,6 +736,9 @@ func (x *Address) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *Address) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = Address{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
@@ -998,8 +1013,12 @@ func (x *Address) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, discardUnkno
 func (x *Session) ProtoJSONXFastPath() {}
 
 func (x *Session) MarshalProtoJSONX() ([]byte, error) {
+	if x == nil {
+		return nil, errors.New("marshal target must be non-nil pointer")
+	}
 	e := protojsonxgen.NewEncoder()
 	if err := x.marshalProtoJSONXTo(e); err != nil {
+		e.Free()
 		return nil, err
 	}
 	return e.Bytes(), nil
@@ -1010,6 +1029,9 @@ func (x *Session) UnmarshalProtoJSONX(data []byte) error {
 }
 
 func (x *Session) UnmarshalProtoJSONXWithOptions(data []byte, discardUnknown bool) error {
+	if x == nil {
+		return errors.New("unmarshal target must be non-nil pointer")
+	}
 	d := protojsonxgen.NewDecoder(data)
 	*x = Session{}
 	firstKey, savedOff, savedDepth, _, peekErr := d.PeekObjectFieldName()
