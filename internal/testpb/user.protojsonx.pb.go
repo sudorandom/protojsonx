@@ -1230,15 +1230,16 @@ func unmarshalEnum_UserStatus(d *protojsonxgen.Decoder) (UserStatus, error) {
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "STATUS_UNSPECIFIED") {
+		switch string(s) {
+		case "STATUS_UNSPECIFIED":
 			v = UserStatus_STATUS_UNSPECIFIED
-		} else if protojsonxgen.MatchStringBytes(s, "STATUS_ACTIVE") {
+		case "STATUS_ACTIVE":
 			v = UserStatus_STATUS_ACTIVE
-		} else if protojsonxgen.MatchStringBytes(s, "STATUS_INACTIVE") {
+		case "STATUS_INACTIVE":
 			v = UserStatus_STATUS_INACTIVE
-		} else if protojsonxgen.MatchStringBytes(s, "STATUS_SUSPENDED") {
+		case "STATUS_SUSPENDED":
 			v = UserStatus_STATUS_SUSPENDED
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {

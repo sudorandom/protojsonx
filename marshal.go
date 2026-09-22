@@ -59,6 +59,16 @@ func (b *encBuffer) writeByte(c byte) {
 	b.buf = append(b.buf, c)
 }
 
+func (b *encBuffer) writeBytes(v []byte) {
+	encLen := base64.StdEncoding.EncodedLen(len(v))
+	b.buf = append(b.buf, '"')
+	start := len(b.buf)
+	b.buf = slices.Grow(b.buf, encLen+1)
+	b.buf = b.buf[:start+encLen]
+	base64.StdEncoding.Encode(b.buf[start:], v)
+	b.buf = append(b.buf, '"')
+}
+
 const hex = "0123456789abcdef"
 
 func (b *encBuffer) writeEscapedString(s string) {
@@ -505,7 +515,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				if !inst.isOptional && len(val) == 0 {
 					b.buf = append(b.buf, `""`...)
 				} else if present {
-					b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
+					b.writeBytes(val)
 				} else {
 					b.buf = append(b.buf, "null"...)
 				}
@@ -704,7 +714,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 					if j > 0 {
 						b.writeByte(',')
 					}
-					b.writeEscapedString(base64.StdEncoding.EncodeToString(v))
+					b.writeBytes(v)
 				}
 				b.writeByte(']')
 				wroteAny = true
@@ -1037,7 +1047,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
 				val := *(*[]byte)(unsafe.Add(subMsgPtr, inst.valueOffset))
-				b.writeEscapedString(base64.StdEncoding.EncodeToString(val))
+				b.writeBytes(val)
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
 				if wroteAny {
@@ -1560,7 +1570,7 @@ func marshalProtoreflectValue(val protoreflect.Value, fd protoreflect.FieldDescr
 	case protoreflect.BoolKind:
 		b.writeBool(val.Bool())
 	case protoreflect.BytesKind:
-		b.writeEscapedString(base64.StdEncoding.EncodeToString(val.Bytes()))
+		b.writeBytes(val.Bytes())
 	case protoreflect.EnumKind:
 		num := int32(val.Enum())
 		enumDesc := fd.Enum()

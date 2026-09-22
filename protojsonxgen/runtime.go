@@ -162,7 +162,13 @@ func (e *Encoder) String(s string) {
 }
 
 func (e *Encoder) BytesField(v []byte) {
-	e.String(base64.StdEncoding.EncodeToString(v))
+	encLen := base64.StdEncoding.EncodedLen(len(v))
+	e.buf = append(e.buf, '"')
+	start := len(e.buf)
+	e.buf = slices.Grow(e.buf, encLen+1)
+	e.buf = e.buf[:start+encLen]
+	base64.StdEncoding.Encode(e.buf[start:], v)
+	e.buf = append(e.buf, '"')
 }
 
 func (e *Encoder) Int32(v int32) {
@@ -214,26 +220,32 @@ func (e *Encoder) Bool(v bool) {
 	}
 }
 
+type stringMapEntry struct {
+	k, v string
+}
+
 func (e *Encoder) StringMap(v map[string]string) {
 	e.buf = append(e.buf, '{')
-	var arr [16]string
-	var keys []string
+	var arr [16]stringMapEntry
+	var entries []stringMapEntry
 	if len(v) <= len(arr) {
-		keys = arr[:0]
+		entries = arr[:0]
 	} else {
-		keys = make([]string, 0, len(v))
+		entries = make([]stringMapEntry, 0, len(v))
 	}
-	for k := range v {
-		keys = append(keys, k)
+	for k, val := range v {
+		entries = append(entries, stringMapEntry{k: k, v: val})
 	}
-	slices.Sort(keys)
-	for i, k := range keys {
+	slices.SortFunc(entries, func(a, b stringMapEntry) int {
+		return strings.Compare(a.k, b.k)
+	})
+	for i, item := range entries {
 		if i > 0 {
 			e.buf = append(e.buf, ',')
 		}
-		e.String(k)
+		e.String(item.k)
 		e.buf = append(e.buf, ':')
-		e.String(v[k])
+		e.String(item.v)
 	}
 	e.buf = append(e.buf, '}')
 }
@@ -450,10 +462,22 @@ func MatchStringBytes(b []byte, s string) bool {
 	return true
 }
 
-func (d *Decoder) ReadBytes() ([]byte, error) {
-	b, err := d.readStringBytes()
-	if err != nil {
-		return nil, err
+func DecodeBase64Bytes(b []byte) ([]byte, error) {
+	if len(b) == 0 {
+		return []byte{}, nil
+	}
+	out := make([]byte, base64.StdEncoding.DecodedLen(len(b)))
+	if n, err := base64.StdEncoding.Decode(out, b); err == nil {
+		return out[:n], nil
+	}
+	if n, err := base64.RawStdEncoding.Decode(out, b); err == nil {
+		return out[:n], nil
+	}
+	if n, err := base64.URLEncoding.Decode(out, b); err == nil {
+		return out[:n], nil
+	}
+	if n, err := base64.RawURLEncoding.Decode(out, b); err == nil {
+		return out[:n], nil
 	}
 	s := string(b)
 	if strings.ContainsAny(s, "-_") {
@@ -463,12 +487,20 @@ func (d *Decoder) ReadBytes() ([]byte, error) {
 	if len(s)%4 != 0 {
 		s += strings.Repeat("=", 4-(len(s)%4))
 	}
-	out := make([]byte, base64.StdEncoding.DecodedLen(len(s)))
+	out = make([]byte, base64.StdEncoding.DecodedLen(len(s)))
 	n, err := base64.StdEncoding.Decode(out, []byte(s))
 	if err != nil {
 		return nil, err
 	}
 	return out[:n], nil
+}
+
+func (d *Decoder) ReadBytes() ([]byte, error) {
+	b, err := d.readStringBytes()
+	if err != nil {
+		return nil, err
+	}
+	return DecodeBase64Bytes(b)
 }
 
 func (d *Decoder) readStringBytes() ([]byte, error) {
@@ -1267,7 +1299,7 @@ func (d *Decoder) ReadTimestamp() (int64, int32, error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	if secs, nanos, ok, err := parseUTCTimestampBytes(s); ok || err != nil {
+	if secs, nanos, ok, err := ParseUTCTimestampBytes(s); ok || err != nil {
 		if err != nil {
 			return 0, 0, err
 		}
@@ -1285,7 +1317,7 @@ func (d *Decoder) ReadTimestamp() (int64, int32, error) {
 	return secs, nanos, nil
 }
 
-func parseUTCTimestampBytes(s []byte) (int64, int32, bool, error) {
+func ParseUTCTimestampBytes(s []byte) (int64, int32, bool, error) {
 	if len(s) < len("2006-01-02T15:04:05Z") || s[4] != '-' || s[7] != '-' || s[10] != 'T' || s[13] != ':' || s[16] != ':' {
 		return 0, 0, false, nil
 	}

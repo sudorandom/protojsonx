@@ -11497,15 +11497,16 @@ func unmarshalEnum_TestAllTypesProto3_NestedEnum(d *protojsonxgen.Decoder) (Test
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "FOO") {
+		switch string(s) {
+		case "FOO":
 			v = TestAllTypesProto3_FOO
-		} else if protojsonxgen.MatchStringBytes(s, "BAR") {
+		case "BAR":
 			v = TestAllTypesProto3_BAR
-		} else if protojsonxgen.MatchStringBytes(s, "BAZ") {
+		case "BAZ":
 			v = TestAllTypesProto3_BAZ
-		} else if protojsonxgen.MatchStringBytes(s, "NEG") {
+		case "NEG":
 			v = TestAllTypesProto3_NEG
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
@@ -11525,13 +11526,14 @@ func unmarshalEnum_ForeignEnum(d *protojsonxgen.Decoder) (ForeignEnum, error) {
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "FOREIGN_FOO") {
+		switch string(s) {
+		case "FOREIGN_FOO":
 			v = ForeignEnum_FOREIGN_FOO
-		} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAR") {
+		case "FOREIGN_BAR":
 			v = ForeignEnum_FOREIGN_BAR
-		} else if protojsonxgen.MatchStringBytes(s, "FOREIGN_BAZ") {
+		case "FOREIGN_BAZ":
 			v = ForeignEnum_FOREIGN_BAZ
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
@@ -11551,19 +11553,20 @@ func unmarshalEnum_TestAllTypesProto3_AliasedEnum(d *protojsonxgen.Decoder) (Tes
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "ALIAS_FOO") {
+		switch string(s) {
+		case "ALIAS_FOO":
 			v = TestAllTypesProto3_ALIAS_FOO
-		} else if protojsonxgen.MatchStringBytes(s, "ALIAS_BAR") {
+		case "ALIAS_BAR":
 			v = TestAllTypesProto3_ALIAS_BAR
-		} else if protojsonxgen.MatchStringBytes(s, "ALIAS_BAZ") {
+		case "ALIAS_BAZ":
 			v = TestAllTypesProto3_ALIAS_BAZ
-		} else if protojsonxgen.MatchStringBytes(s, "MOO") {
+		case "MOO":
 			v = TestAllTypesProto3_MOO
-		} else if protojsonxgen.MatchStringBytes(s, "moo") {
+		case "moo":
 			v = TestAllTypesProto3_moo
-		} else if protojsonxgen.MatchStringBytes(s, "bAz") {
+		case "bAz":
 			v = TestAllTypesProto3_bAz
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {
@@ -11583,9 +11586,10 @@ func unmarshalEnum_NullValue(d *protojsonxgen.Decoder) (structpb.NullValue, erro
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "NULL_VALUE") {
+		switch string(s) {
+		case "NULL_VALUE":
 			v = structpb.NullValue_NULL_VALUE
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {

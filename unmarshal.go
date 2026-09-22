@@ -12,7 +12,6 @@ package protojsonx
 // successful decode clears fields that were omitted from reused target structs.
 //
 import (
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -273,21 +272,82 @@ func parseStringOrNumberToUint64(s string) (uint64, error) {
 	return uint64(f), nil
 }
 
+func (d *decBuffer) readSimpleInt64Token() (int64, bool, error) {
+	start := d.off
+	neg := false
+	if d.off < len(d.data) && d.data[d.off] == '-' {
+		neg = true
+		d.off++
+	}
+	if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
+		d.off = start
+		return 0, false, nil
+	}
+	if d.data[d.off] == '0' && d.off+1 < len(d.data) && d.data[d.off+1] >= '0' && d.data[d.off+1] <= '9' {
+		d.off = start
+		return 0, false, nil
+	}
+	var u uint64
+	for d.off < len(d.data) {
+		c := d.data[d.off]
+		if c < '0' || c > '9' {
+			if c == '.' || c == 'e' || c == 'E' {
+				d.off = start
+				return 0, false, nil
+			}
+			if !isJSONValueTerminator(c) {
+				d.off = start
+				return 0, false, nil
+			}
+			break
+		}
+		limit := uint64(math.MaxInt64)
+		if neg {
+			limit = uint64(math.MaxInt64) + 1
+		}
+		if u > limit/10 {
+			return 0, true, errors.New("integer out of range for int64")
+		}
+		u *= 10
+		digit := uint64(c - '0')
+		if u > limit-digit {
+			return 0, true, errors.New("integer out of range for int64")
+		}
+		u += digit
+		d.off++
+	}
+	if neg {
+		return -int64(u), true, nil
+	}
+	return int64(u), true, nil
+}
+
 func (d *decBuffer) readInt32() (int32, error) {
 	d.skipWhitespace()
+	if d.off < len(d.data) && d.data[d.off] != '"' {
+		if v, ok, err := d.readSimpleInt64Token(); ok || err != nil {
+			if err != nil {
+				return 0, err
+			}
+			if v < math.MinInt32 || v > math.MaxInt32 {
+				return 0, fmt.Errorf("integer out of range for int32: %d", v)
+			}
+			return int32(v), nil
+		}
+	}
 	var s string
 	if d.off < len(d.data) && d.data[d.off] == '"' {
 		val, err := d.readStringBytes()
 		if err != nil {
 			return 0, err
 		}
-		s = string(val)
+		s = unsafeString(val)
 	} else {
 		token, err := d.readJSONNumberToken()
 		if err != nil {
 			return 0, err
 		}
-		s = string(token)
+		s = unsafeString(token)
 	}
 	v, err := parseStringOrNumberToInt64(s)
 	if err != nil {
@@ -301,19 +361,24 @@ func (d *decBuffer) readInt32() (int32, error) {
 
 func (d *decBuffer) readInt64() (int64, error) {
 	d.skipWhitespace()
+	if d.off < len(d.data) && d.data[d.off] != '"' {
+		if v, ok, err := d.readSimpleInt64Token(); ok || err != nil {
+			return v, err
+		}
+	}
 	var s string
 	if d.off < len(d.data) && d.data[d.off] == '"' {
 		val, err := d.readStringBytes()
 		if err != nil {
 			return 0, err
 		}
-		s = string(val)
+		s = unsafeString(val)
 	} else {
 		token, err := d.readJSONNumberToken()
 		if err != nil {
 			return 0, err
 		}
-		s = string(token)
+		s = unsafeString(token)
 	}
 	return parseStringOrNumberToInt64(s)
 }
@@ -326,13 +391,13 @@ func (d *decBuffer) readUint32() (uint32, error) {
 		if err != nil {
 			return 0, err
 		}
-		s = string(val)
+		s = unsafeString(val)
 	} else {
 		token, err := d.readJSONNumberToken()
 		if err != nil {
 			return 0, err
 		}
-		s = string(token)
+		s = unsafeString(token)
 	}
 	v, err := parseStringOrNumberToUint64(s)
 	if err != nil {
@@ -352,13 +417,13 @@ func (d *decBuffer) readUint64() (uint64, error) {
 		if err != nil {
 			return 0, err
 		}
-		s = string(val)
+		s = unsafeString(val)
 	} else {
 		token, err := d.readJSONNumberToken()
 		if err != nil {
 			return 0, err
 		}
-		s = string(token)
+		s = unsafeString(token)
 	}
 	return parseStringOrNumberToUint64(s)
 }
@@ -377,7 +442,7 @@ func (d *decBuffer) readFloat32() (float32, error) {
 	if err != nil {
 		return 0, err
 	}
-	v, err := strconv.ParseFloat(string(token), 32)
+	v, err := strconv.ParseFloat(unsafeString(token), 32)
 	return float32(v), err
 }
 
@@ -394,7 +459,7 @@ func (d *decBuffer) readFloat64() (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return strconv.ParseFloat(string(token), 64)
+	return strconv.ParseFloat(unsafeString(token), 64)
 }
 
 func (d *decBuffer) readJSONNumberToken() ([]byte, error) {
@@ -634,9 +699,7 @@ func (d *decBuffer) skipValue() error {
 	}
 }
 
-// parseObject parses a JSON object and delegates each key's value to fn. fn is
-// responsible for consuming exactly one value.
-func (d *decBuffer) parseObject(fn func(key []byte) error) error {
+func (d *decBuffer) beginObject() error {
 	d.skipWhitespace()
 	if d.off >= len(d.data) || d.data[d.off] != '{' {
 		return errors.New("expected '{'")
@@ -646,48 +709,66 @@ func (d *decBuffer) parseObject(fn func(key []byte) error) error {
 		return errors.New("exceeded maximum recursion depth")
 	}
 	d.off++
+	return nil
+}
 
-	first := true
-	for {
-		d.skipWhitespace()
-		if d.off >= len(d.data) {
+func (d *decBuffer) nextObjectKey(first *bool) ([]byte, bool, error) {
+	d.skipWhitespace()
+	if d.off >= len(d.data) {
+		d.depth--
+		return nil, false, errors.New("unexpected EOF")
+	}
+	if d.data[d.off] == '}' {
+		d.off++
+		d.depth--
+		return nil, false, nil
+	}
+	if !*first {
+		if d.data[d.off] != ',' {
 			d.depth--
-			return errors.New("unexpected EOF")
-		}
-		if d.data[d.off] == '}' {
-			d.off++
-			d.depth--
-			return nil
-		}
-		if !first {
-			if d.data[d.off] != ',' {
-				d.depth--
-				return errors.New("expected ','")
-			}
-			d.off++
-			d.skipWhitespace()
-		}
-		first = false
-
-		key, err := d.readStringBytes()
-		if err != nil {
-			d.depth--
-			return err
-		}
-		d.skipWhitespace()
-		if d.off >= len(d.data) || d.data[d.off] != ':' {
-			d.depth--
-			return errors.New("expected ':'")
+			return nil, false, errors.New("expected ','")
 		}
 		d.off++
+		d.skipWhitespace()
+	}
+	*first = false
 
+	key, err := d.readStringBytes()
+	if err != nil {
+		d.depth--
+		return nil, false, err
+	}
+	d.skipWhitespace()
+	if d.off >= len(d.data) || d.data[d.off] != ':' {
+		d.depth--
+		return nil, false, errors.New("expected ':'")
+	}
+	d.off++
+	return key, true, nil
+}
+
+// parseObject parses a JSON object and delegates each key's value to fn. fn is
+// responsible for consuming exactly one value.
+func (d *decBuffer) parseObject(fn func(key []byte) error) error {
+	if err := d.beginObject(); err != nil {
+		return err
+	}
+	first := true
+	for {
+		key, ok, err := d.nextObjectKey(&first)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
+		}
 		err = fn(key)
 		if err != nil {
-			d.depth--
 			return err
 		}
 	}
 }
+
 
 // parseArray parses a JSON array and delegates each element to fn. fn is
 // responsible for consuming exactly one element value.
@@ -1050,14 +1131,39 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 		table.resetIfNeeded(ptr)
 		seen := make(map[*fieldInstruction]struct{}, len(table.fields))
 		seenExts := make(map[string]struct{})
-		return d.parseObject(func(key []byte) error {
-			return table.unmarshalField(ptr, d, opts, key, seen, seenExts, &seenOneofs)
-		})
+		if err := d.beginObject(); err != nil {
+			return err
+		}
+		first := true
+		for {
+			key, ok, err := d.nextObjectKey(&first)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				break
+			}
+			if err := table.unmarshalField(ptr, d, opts, key, seen, seenExts, &seenOneofs); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	var seen uint64
 	var seenExts map[string]struct{}
-	err := d.parseObject(func(key []byte) error {
+	if err := d.beginObject(); err != nil {
+		return err
+	}
+	first := true
+	for {
+		key, ok, err := d.nextObjectKey(&first)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
 		if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
 			extName := string(key[1 : len(key)-1])
 			xt, errExt := protoregistry.GlobalTypes.FindExtensionByName(protoreflect.FullName(extName))
@@ -1070,13 +1176,19 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 				}
 				seenExts[extName] = struct{}{}
 				pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
-				return unmarshalExtensionField(pref, xt, d, opts)
+				if err := unmarshalExtensionField(pref, xt, d, opts); err != nil {
+					return err
+				}
+				continue
 			}
 		}
 		inst, err := table.unmarshalFieldInstruction(key, opts)
 		if err != nil {
 			if opts.DiscardUnknown && err == errUnknownField {
-				return d.skipValue()
+				if err := d.skipValue(); err != nil {
+					return err
+				}
+				continue
 			}
 			return err
 		}
@@ -1095,10 +1207,9 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 			return errors.New("duplicate field: " + unsafeString(key))
 		}
 		seen |= bit
-		return table.unmarshalKnownField(ptr, d, opts, inst)
-	})
-	if err != nil {
-		return err
+		if err := table.unmarshalKnownField(ptr, d, opts, inst); err != nil {
+			return err
+		}
 	}
 	allSeen := ^uint64(0)
 	if len(table.fields) < 64 {
@@ -1275,7 +1386,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			return err
 		}
 		// Base64 decode
-		decoded, err := decodeBase64(unsafeString(val))
+		decoded, err := decodeBase64Bytes(val)
 		if err != nil {
 			return err
 		}
@@ -1412,7 +1523,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			decoded, err := decodeBase64(unsafeString(val))
+			decoded, err := decodeBase64Bytes(val)
 			if err != nil {
 				return err
 			}
@@ -1506,6 +1617,17 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		val, err := d.readStringBytes()
 		if err != nil {
 			return err
+		}
+		if secs, nanos, ok, err := protojsonxgen.ParseUTCTimestampBytes(val); ok || err != nil {
+			if err != nil {
+				return err
+			}
+			if err := validateTimestamp(secs, nanos); err != nil {
+				return err
+			}
+			*(*int64)(unsafe.Add(*subMsgPtrPtr, inst.secondsOffset)) = secs
+			*(*int32)(unsafe.Add(*subMsgPtrPtr, inst.nanosOffset)) = nanos
+			return nil
 		}
 		t, err := time.Parse(time.RFC3339Nano, unsafeString(val))
 		if err != nil {
@@ -1681,7 +1803,7 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 			if err != nil {
 				return err
 			}
-			decoded, err := decodeBase64(unsafeString(s))
+			decoded, err := decodeBase64Bytes(s)
 			if err != nil {
 				return err
 			}
@@ -1808,12 +1930,21 @@ func unmarshalCustomWellKnown(msg proto.Message, d *decBuffer, opts UnmarshalOpt
 		if err != nil {
 			return err
 		}
-		t, err := time.Parse(time.RFC3339Nano, string(bytes))
-		if err != nil {
-			return err
+		var secs int64
+		var nanos int32
+		if s, n, ok, err := protojsonxgen.ParseUTCTimestampBytes(bytes); ok || err != nil {
+			if err != nil {
+				return err
+			}
+			secs, nanos = s, n
+		} else {
+			t, err := time.Parse(time.RFC3339Nano, unsafeString(bytes))
+			if err != nil {
+				return err
+			}
+			secs = t.Unix()
+			nanos = int32(t.Nanosecond())
 		}
-		secs := t.Unix()
-		nanos := int32(t.Nanosecond())
 		if err := validateTimestamp(secs, nanos); err != nil {
 			return err
 		}
@@ -1941,7 +2072,7 @@ func unmarshalCustomWellKnown(msg proto.Message, d *decBuffer, opts UnmarshalOpt
 				if err != nil {
 					return err
 				}
-				b, err := decodeBase64(string(val))
+				b, err := decodeBase64Bytes(val)
 				if err != nil {
 					return err
 				}
@@ -2442,7 +2573,7 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 		if err != nil {
 			return protoreflect.Value{}, err
 		}
-		b, err := decodeBase64(string(val))
+		b, err := decodeBase64Bytes(val)
 		if err != nil {
 			return protoreflect.Value{}, err
 		}
@@ -2638,15 +2769,8 @@ func unmarshalMap(pref protoreflect.Message, inst *fieldInstruction, d *decBuffe
 	})
 }
 
-func decodeBase64(s string) ([]byte, error) {
-	if strings.ContainsAny(s, "-_") {
-		s = strings.ReplaceAll(s, "-", "+")
-		s = strings.ReplaceAll(s, "_", "/")
-	}
-	if len(s)%4 != 0 {
-		s += strings.Repeat("=", 4-(len(s)%4))
-	}
-	return base64.StdEncoding.DecodeString(s)
+func decodeBase64Bytes(b []byte) ([]byte, error) {
+	return protojsonxgen.DecodeBase64Bytes(b)
 }
 
 func unmarshalExtensionField(pref protoreflect.Message, xt protoreflect.ExtensionType, d *decBuffer, opts UnmarshalOptions) error {

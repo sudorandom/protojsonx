@@ -4467,13 +4467,14 @@ func unmarshalEnum_TestEnum(d *protojsonxgen.Decoder) (TestEnum, error) {
 		if err != nil {
 			return 0, err
 		}
-		if protojsonxgen.MatchStringBytes(s, "TEST_ENUM_UNSPECIFIED") {
+		switch string(s) {
+		case "TEST_ENUM_UNSPECIFIED":
 			v = TestEnum_TEST_ENUM_UNSPECIFIED
-		} else if protojsonxgen.MatchStringBytes(s, "TEST_ENUM_FIRST") {
+		case "TEST_ENUM_FIRST":
 			v = TestEnum_TEST_ENUM_FIRST
-		} else if protojsonxgen.MatchStringBytes(s, "TEST_ENUM_SECOND") {
+		case "TEST_ENUM_SECOND":
 			v = TestEnum_TEST_ENUM_SECOND
-		} else {
+		default:
 			return 0, protojsonxgen.ErrUnknownEnum
 		}
 	} else {

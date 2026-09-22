@@ -1477,19 +1477,17 @@ func collectEnums(file *protogen.File) []*protogen.Enum {
 }
 
 func generateEnumHelper(g *protogen.GeneratedFile, helperPackage protogen.GoImportPath, enum *protogen.Enum) {
-	matchStringBytes := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "MatchStringBytes"})
-
 	g.P("func unmarshalEnum_", enum.GoIdent.GoName, "(d *", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ") (", g.QualifiedGoIdent(enum.GoIdent), ", error) {")
 	g.P("var v ", g.QualifiedGoIdent(enum.GoIdent))
 	g.P("if d.IsString() {")
 	g.P("s, err := d.ReadStringBytes()")
 	g.P("if err != nil { return 0, err }")
+	g.P("switch string(s) {")
 	for _, enumValue := range enum.Values {
-		g.P("if ", matchStringBytes, "(s, ", strconvQuote(string(enumValue.Desc.Name())), ") {")
+		g.P("case ", strconvQuote(string(enumValue.Desc.Name())), ":")
 		g.P("v = ", g.QualifiedGoIdent(enumValue.GoIdent))
-		g.P("} else ")
 	}
-	g.P("{")
+	g.P("default:")
 	g.P("return 0, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "ErrUnknownEnum"}))
 	g.P("}")
 	g.P("} else {")
