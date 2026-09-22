@@ -67,6 +67,7 @@ func FuzzUnmarshal(f *testing.F) {
 	// Bad base64
 	f.Add([]byte(`{"bytesField":"!!!!"}`))
 	f.Add([]byte(`{"bytesField":"=abc"}`))
+	f.Add([]byte(`{"bytesField":"000"}`))
 
 	// Unterminated strings and arrays/objects
 	f.Add([]byte(`{"stringField":"abc`))
