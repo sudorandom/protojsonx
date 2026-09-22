@@ -466,18 +466,17 @@ func DecodeBase64Bytes(b []byte) ([]byte, error) {
 	if len(b) == 0 {
 		return []byte{}, nil
 	}
-	out := make([]byte, base64.StdEncoding.DecodedLen(len(b)))
-	if n, err := base64.StdEncoding.Decode(out, b); err == nil {
-		return out[:n], nil
+	if out, err := base64.StdEncoding.AppendDecode(nil, b); err == nil {
+		return out, nil
 	}
-	if n, err := base64.RawStdEncoding.Decode(out, b); err == nil {
-		return out[:n], nil
+	if out, err := base64.RawStdEncoding.AppendDecode(nil, b); err == nil {
+		return out, nil
 	}
-	if n, err := base64.URLEncoding.Decode(out, b); err == nil {
-		return out[:n], nil
+	if out, err := base64.URLEncoding.AppendDecode(nil, b); err == nil {
+		return out, nil
 	}
-	if n, err := base64.RawURLEncoding.Decode(out, b); err == nil {
-		return out[:n], nil
+	if out, err := base64.RawURLEncoding.AppendDecode(nil, b); err == nil {
+		return out, nil
 	}
 	s := string(b)
 	if strings.ContainsAny(s, "-_") {
@@ -487,12 +486,7 @@ func DecodeBase64Bytes(b []byte) ([]byte, error) {
 	if len(s)%4 != 0 {
 		s += strings.Repeat("=", 4-(len(s)%4))
 	}
-	out = make([]byte, base64.StdEncoding.DecodedLen(len(s)))
-	n, err := base64.StdEncoding.Decode(out, []byte(s))
-	if err != nil {
-		return nil, err
-	}
-	return out[:n], nil
+	return base64.StdEncoding.DecodeString(s)
 }
 
 func (d *Decoder) ReadBytes() ([]byte, error) {
