@@ -32,14 +32,15 @@ Benchmarks run on an Apple M5 Pro (Go 1.26.4), comparing standard `protojson`, s
 |---|---:|---:|---:|---:|
 | `protojson` (Standard Lib) | 4,429 ns | 129 | 5,835 ns | 153 |
 | `proto` (Binary Wire) | 993 ns | 45 | 880 ns | 33 |
-| `protojsonx` (Runtime Table) | **1,302 ns** | **35** | **1,690 ns** | **28** |
+| `protojsonx` (Runtime Table — Shuffled) | **1,192 ns** | **33** | **1,593 ns** | **26** |
+| `protojsonx` (Runtime Table — Ordered) | **1,144 ns** | **33** | **1,453 ns** | **26** |
 | `protojsonx` (Codegen Plugin — Shuffled) | **1,004 ns** | **28** | **1,342 ns** | **25** |
 | `protojsonx` (Codegen Plugin — Ordered) | **797 ns** | **28** | **965 ns** | **25** |
 
 ### 🚀 Summary
 
-- **Marshal**: **5–6x faster** than `protojson` with just **1 alloc/op**, and faster than or on par with binary `proto.Marshal`.
-- **Unmarshal**: **3.5x faster** than `protojson` out-of-the-box (runtime table), and **5.5–6x faster** with the codegen plugin.
+- **Marshal**: **5.5–6x faster** than `protojson` with just **1 alloc/op**, and faster than or on par with binary `proto.Marshal`.
+- **Unmarshal**: **~4x faster** than `protojson` out-of-the-box (runtime table), and **5.5–6x faster** with the codegen plugin.
 - **Zero-config upgrade**: Works immediately as a drop-in library, and automatically uses generated code when `.protojsonx.pb.go` files are present.
 
 ## How It Works

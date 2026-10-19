@@ -154,6 +154,30 @@ func BenchmarkProtojsonx_Unmarshal(b *testing.B) {
 	}
 }
 
+func BenchmarkProtojsonx_Unmarshal_Shuffled(b *testing.B) {
+	p := createUserProfile()
+	ordered, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	rng := rand.New(rand.NewSource(42))
+	shuffled, err := shuffleJSONFields(ordered, rng)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var out testpb.UserProfile
+		err := UnmarshalOptions{DisableFastPath: true}.Unmarshal(shuffled, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkProtojsonxPlugin_Unmarshal(b *testing.B) {
 	p := createUserProfile()
 	data, err := p.MarshalProtoJSONX()
@@ -333,6 +357,30 @@ func BenchmarkComplexProtojsonx_Unmarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var out testpb.ComplexMessage
 		err := UnmarshalOptions{DisableFastPath: true}.Unmarshal(data, &out)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkComplexProtojsonx_Unmarshal_Shuffled(b *testing.B) {
+	p := createBenchComplexMessage()
+	ordered, err := Marshal(p)
+	if err != nil {
+		b.Fatal(err)
+	}
+	rng := rand.New(rand.NewSource(42))
+	shuffled, err := shuffleJSONFields(ordered, rng)
+	if err != nil {
+		b.Fatal(err)
+	}
+	_ = GetTable(p)
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		var out testpb.ComplexMessage
+		err := UnmarshalOptions{DisableFastPath: true}.Unmarshal(shuffled, &out)
 		if err != nil {
 			b.Fatal(err)
 		}

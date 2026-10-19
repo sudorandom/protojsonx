@@ -652,6 +652,31 @@ func (d *decBuffer) beginObject() error {
 	return nil
 }
 
+func (d *decBuffer) readObjectKeyFast() ([]byte, error) {
+	if d.off >= len(d.data) || d.data[d.off] != '"' {
+		return nil, errors.New("expected string")
+	}
+	d.off++
+	start := d.off
+	for d.off < len(d.data) {
+		c := d.data[d.off]
+		if c == '"' {
+			s := d.data[start:d.off]
+			d.off++
+			return s, nil
+		}
+		if c == '\\' || c >= 0x80 {
+			d.off = start - 1
+			return d.readStringBytes()
+		}
+		if c < 0x20 {
+			return nil, errors.New("invalid control character in string")
+		}
+		d.off++
+	}
+	return nil, errors.New("unterminated string")
+}
+
 func (d *decBuffer) nextObjectKey(first *bool) ([]byte, bool, error) {
 	d.skipWhitespace()
 	if d.off >= len(d.data) {
@@ -673,7 +698,7 @@ func (d *decBuffer) nextObjectKey(first *bool) ([]byte, bool, error) {
 	}
 	*first = false
 
-	key, err := d.readStringBytes()
+	key, err := d.readObjectKeyFast()
 	if err != nil {
 		d.depth--
 		return nil, false, err
@@ -1092,6 +1117,7 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 		return err
 	}
 	first := true
+	nextIdx := 0
 	for {
 		key, ok, err := d.nextObjectKey(&first)
 		if err != nil {
@@ -1100,33 +1126,45 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 		if !ok {
 			break
 		}
-		if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
-			extName := string(key[1 : len(key)-1])
-			xt, errExt := protoregistry.GlobalTypes.FindExtensionByName(protoreflect.FullName(extName))
-			if errExt == nil {
-				if seenExts == nil {
-					seenExts = make(map[string]struct{})
-				}
-				if _, ok := seenExts[extName]; ok {
-					return fmt.Errorf("duplicate field: %q", string(key))
-				}
-				seenExts[extName] = struct{}{}
-				pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
-				if err := unmarshalExtensionField(pref, xt, d, opts); err != nil {
-					return err
-				}
-				continue
+		var inst *fieldInstruction
+		if nextIdx < len(table.fields) {
+			cand := &table.fields[nextIdx]
+			k := unsafeString(key)
+			if k == cand.jsonName || k == cand.protoName {
+				inst = cand
+				nextIdx++
 			}
 		}
-		inst, err := table.unmarshalFieldInstruction(key, opts)
-		if err != nil {
-			if opts.DiscardUnknown && err == errUnknownField {
-				if err := d.skipValue(); err != nil {
-					return err
+		if inst == nil {
+			if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
+				extName := string(key[1 : len(key)-1])
+				xt, errExt := protoregistry.GlobalTypes.FindExtensionByName(protoreflect.FullName(extName))
+				if errExt == nil {
+					if seenExts == nil {
+						seenExts = make(map[string]struct{})
+					}
+					if _, ok := seenExts[extName]; ok {
+						return fmt.Errorf("duplicate field: %q", string(key))
+					}
+					seenExts[extName] = struct{}{}
+					pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+					if err := unmarshalExtensionField(pref, xt, d, opts); err != nil {
+						return err
+					}
+					continue
 				}
-				continue
 			}
-			return err
+			inst, err = table.unmarshalFieldInstruction(key, opts)
+			if err != nil {
+				if opts.DiscardUnknown && err == errUnknownField {
+					if err := d.skipValue(); err != nil {
+						return err
+					}
+					continue
+				}
+				return err
+			}
+			nextIdx = inst.index + 1
 		}
 		if inst.ftype == TypeOneofField && (!d.peekNull() || isNullPopulatedOneof(inst.fd)) {
 			od := inst.fd.ContainingOneof()
@@ -1803,14 +1841,15 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 		} else if inst.msgTable.err != nil {
 			return inst.msgTable.err
 		}
-		sliceVal := reflect.NewAt(reflect.SliceOf(reflect.PointerTo(inst.elemType)), fieldPtr).Elem()
-		sliceVal.SetLen(0)
+		slicePtr := (*[]unsafe.Pointer)(fieldPtr)
+		*slicePtr = (*slicePtr)[:0]
 
 		return d.parseArray(func() error {
 			if d.peekNull() {
 				return errors.New("repeated field elements cannot be null")
 			}
 			newElem := allocate(inst.elemType, opts)
+			elemPtr := newElem.UnsafePointer()
 			var err error
 			if isCustomWellKnown(inst.msgTable.fullName) {
 				msg := newElem.Interface().(proto.Message)
@@ -1823,12 +1862,12 @@ func (table *MessageTable) unmarshalKnownField(ptr unsafe.Pointer, d *decBuffer,
 				msg := newElem.Interface().(proto.Message)
 				err = protojson.UnmarshalOptions{DiscardUnknown: opts.DiscardUnknown}.Unmarshal(raw, msg)
 			} else {
-				err = inst.msgTable.unmarshalFrom(newElem.UnsafePointer(), d, opts)
+				err = inst.msgTable.unmarshalFrom(elemPtr, d, opts)
 			}
 			if err != nil {
 				return err
 			}
-			sliceVal.Set(reflect.Append(sliceVal, newElem))
+			*slicePtr = append(*slicePtr, elemPtr)
 			return nil
 		})
 	}
