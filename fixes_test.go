@@ -7,7 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/sudorandom/protojsonx/internal/conformancepb"
 	"github.com/sudorandom/protojsonx/internal/testpb"
+	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // TestOptionalFieldClearSafety verifies that clearField and resetIfNeeded correctly
@@ -116,3 +118,39 @@ func TestEscapedStringWithControlCharRejected(t *testing.T) {
 	require.Error(t, msg.UnmarshalProtoJSONX(jsonInput))
 }
 
+// TestFallbackUnmarshalWithOptionsDiscardUnknown verifies that calling
+// UnmarshalProtoJSONXWithOptions(data, true) on a message with extensions
+// forwards discardUnknown to the runtime fallback.
+func TestFallbackUnmarshalWithOptionsDiscardUnknown(t *testing.T) {
+	jsonInput := []byte(`{"optionalInt32": 7, "unknownField": "ignored"}`)
+	var msg conformance.TestAllTypesProto2
+	require.NoError(t, msg.UnmarshalProtoJSONXWithOptions(jsonInput, true))
+	assert.Equal(t, int32(7), msg.GetOptionalInt32())
+	require.Error(t, msg.UnmarshalProtoJSONXWithOptions(jsonInput, false))
+}
+
+// TestOneofDuplicateWithNullValueRejected verifies that setting a google.protobuf.NullValue
+// oneof variant to null counts as populating the oneof and rejects a second variant.
+func TestOneofDuplicateWithNullValueRejected(t *testing.T) {
+	for _, payload := range []string{
+		`{"oneofNullValue": null, "oneofUint32": 42}`,
+		`{"oneofUint32": 42, "oneofNullValue": null}`,
+	} {
+		var genMsg conformance.TestAllTypesProto3
+		require.Error(t, genMsg.UnmarshalProtoJSONX([]byte(payload)), payload)
+
+		var runtimeMsg conformance.TestAllTypesProto3
+		require.Error(t, (UnmarshalOptions{DisableFastPath: true}).Unmarshal([]byte(payload), &runtimeMsg), payload)
+	}
+}
+
+// TestMapValueNullStructpbValueAllowed verifies that UnmarshalMessageMapValue
+// permits JSON null when the value type is google.protobuf.Value.
+func TestMapValueNullStructpbValueAllowed(t *testing.T) {
+	d := protojsonxgen.NewDecoder([]byte("null"))
+	val, err := protojsonxgen.UnmarshalMessageMapValue[structpb.Value](d, false)
+	require.NoError(t, err)
+	require.NotNil(t, val)
+	_, ok := val.Kind.(*structpb.Value_NullValue)
+	assert.True(t, ok)
+}

@@ -21,20 +21,20 @@ Benchmarks run on an Apple M5 Pro (Go 1.26.4), comparing standard `protojson`, s
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 2,477 ns | 62 | 3,436 ns | 69 |
-| `proto` (Binary Wire) | 698 ns | 13 | 607 ns | 9 |
-| `protojsonx` (Runtime Table) | **472 ns** | **1** | **656 ns** | **1** |
-| `protojsonx` (Codegen Plugin) | **444 ns** | **1** | **593 ns** | **1** |
+| `protojson` (Standard Lib) | 2,769 ns | 63 | 3,634 ns | 69 |
+| `proto` (Binary Wire) | 675 ns | 13 | 607 ns | 9 |
+| `protojsonx` (Runtime Table) | **469 ns** | **1** | **640 ns** | **1** |
+| `protojsonx` (Codegen Plugin) | **438 ns** | **1** | **582 ns** | **1** |
 
 ### Unmarshalling (Deserialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 4,417 ns | 129 | 5,837 ns | 153 |
-| `proto` (Binary Wire) | 1,002 ns | 45 | 863 ns | 33 |
-| `protojsonx` (Runtime Table) | **1,319 ns** | **35** | **1,694 ns** | **28** |
-| `protojsonx` (Codegen Plugin — Shuffled) | **1,075 ns** | **28** | **1,357 ns** | **25** |
-| `protojsonx` (Codegen Plugin — Ordered) | **806 ns** | **28** | **957 ns** | **25** |
+| `protojson` (Standard Lib) | 4,429 ns | 129 | 5,835 ns | 153 |
+| `proto` (Binary Wire) | 993 ns | 45 | 880 ns | 33 |
+| `protojsonx` (Runtime Table) | **1,302 ns** | **35** | **1,690 ns** | **28** |
+| `protojsonx` (Codegen Plugin — Shuffled) | **1,004 ns** | **28** | **1,342 ns** | **25** |
+| `protojsonx` (Codegen Plugin — Ordered) | **797 ns** | **28** | **965 ns** | **25** |
 
 ### 🚀 Summary
 

@@ -4993,6 +4993,10 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, d
 		}
 		if status > 0 {
 			if d.ReadNull() {
+				if seenOneofs&(1<<0) != 0 {
+					return false, protojsonxgen.DuplicateField("oneofNullValue")
+				}
+				seenOneofs |= (1 << 0)
 				x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: 0}
 			} else {
 				if seenOneofs&(1<<0) != 0 {
@@ -9948,6 +9952,10 @@ func (x *TestAllTypesProto3) unmarshalProtoJSONXFrom(d *protojsonxgen.Decoder, d
 			}
 			seen[100] = true
 			if d.ReadNull() {
+				if seenOneofs&(1<<0) != 0 {
+					return protojsonxgen.DuplicateField(key)
+				}
+				seenOneofs |= (1 << 0)
 				x.OneofField = &TestAllTypesProto3_OneofNullValue{OneofNullValue: 0}
 			} else {
 				if seenOneofs&(1<<0) != 0 {

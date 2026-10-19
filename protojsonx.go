@@ -20,6 +20,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/proto"
@@ -253,8 +254,12 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 	close(table.ready)
 
 	fieldNumToStructField := make(map[protoreflect.FieldNumber]reflect.StructField)
+	oneofNameToStructField := make(map[string]reflect.StructField)
 	for i := 0; i < goType.NumField(); i++ {
 		f := goType.Field(i)
+		if oneofTag := f.Tag.Get("protobuf_oneof"); oneofTag != "" {
+			oneofNameToStructField[oneofTag] = f
+		}
 		tag := f.Tag.Get("protobuf")
 		if tag == "" {
 			continue
@@ -274,13 +279,19 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		var inst fieldInstruction
 		sf, ok := fieldNumToStructField[fd.Number()]
 		if !ok {
-			if fd.ContainingOneof() != nil {
+			if od := fd.ContainingOneof(); od != nil {
 				inst = fieldInstruction{
 					ftype:     TypeOneofField,
 					jsonName:  fd.JSONName(),
 					protoName: string(fd.Name()),
 					index:     len(table.fields),
 					fd:        fd,
+				}
+				if osf, ok := oneofNameToStructField[string(od.Name())]; ok &&
+					osf.Type.Kind() == reflect.Interface &&
+					osf.Type.Size() == unsafe.Sizeof([2]unsafe.Pointer{}) {
+					inst.offset = osf.Offset
+					inst.isOptional = true
 				}
 				table.fields = append(table.fields, inst)
 				continue

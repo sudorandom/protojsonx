@@ -1060,6 +1060,9 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				wroteAny = true
 			}
 		case TypeOneofField:
+			if inst.isOptional && *(*[2]unsafe.Pointer)(fieldPtr) == ([2]unsafe.Pointer{}) {
+				continue
+			}
 			if pref == nil {
 				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
 			}
@@ -1495,7 +1498,7 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 	tempBuf.buf = tempBuf.buf[:0]
 	err = subTable.marshalTo(subMsgPtr, tempBuf, opts)
 	if err != nil {
-		encBufPool.Put(tempBuf)
+		putEncBuffer(tempBuf)
 		return err
 	}
 	if len(tempBuf.buf) >= 2 && tempBuf.buf[0] == '{' && tempBuf.buf[len(tempBuf.buf)-1] == '}' {
@@ -1505,7 +1508,7 @@ func marshalAny(pref protoreflect.Message, b *encBuffer, opts MarshalOptions) er
 			b.buf = append(b.buf, stripped...)
 		}
 	}
-	encBufPool.Put(tempBuf)
+	putEncBuffer(tempBuf)
 	b.writeByte('}')
 	return nil
 }

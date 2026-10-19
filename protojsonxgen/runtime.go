@@ -1690,6 +1690,14 @@ func UnmarshalMessageMapValue[V any, PT interface {
 	proto.Message
 }](d *Decoder, discardUnknown bool) (PT, error) {
 	if d.ReadNull() {
+		var v V
+		var pt PT = &v
+		if pt.ProtoReflect().Descriptor().FullName() == "google.protobuf.Value" {
+			if err := UnmarshalWithOptions([]byte("null"), pt, discardUnknown); err != nil {
+				return nil, err
+			}
+			return pt, nil
+		}
 		return nil, errors.New("map value cannot be null")
 	}
 	var v V

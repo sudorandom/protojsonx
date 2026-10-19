@@ -121,7 +121,7 @@ func generateMessage(g *protogen.GeneratedFile, helperPackage protogen.GoImportP
 		g.P("}")
 		g.P("return d.Finish()")
 	} else {
-		g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Unmarshal"}), "(data, x)")
+		g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnmarshalWithOptions"}), "(data, x, discardUnknown)")
 	}
 	g.P("}") 
 	g.P()
@@ -255,21 +255,6 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 		return
 	}
 	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
-		g.P("if d.ReadNull() {")
-		if isWKTValue(field) {
-			nullValueIdent := protogen.GoIdent{
-				GoImportPath: "google.golang.org/protobuf/types/known/structpb",
-				GoName:       "NewNullValue",
-			}
-			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
-		} else if isWKTNullValue(field) {
-			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
-		} else {
-			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
-			g.P("x.", field.Oneof.GoName, " = nil")
-			g.P("}")
-		}
-		g.P("} else {")
 		oneofIndex := -1
 		for idx, oo := range field.Parent.Oneofs {
 			if oo == field.Oneof {
@@ -277,6 +262,34 @@ func generateFieldUnmarshalFast(g *protogen.GeneratedFile, helperPackage protoge
 				break
 			}
 		}
+		g.P("if d.ReadNull() {")
+		if isWKTValue(field) || isWKTNullValue(field) {
+			if len(field.Parent.Oneofs) > 64 {
+				g.P("if seenOneofs[", oneofIndex, "] {")
+				g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
+				g.P("}")
+				g.P("seenOneofs[", oneofIndex, "] = true")
+			} else {
+				g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+				g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
+				g.P("}")
+				g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+			}
+			if isWKTValue(field) {
+				nullValueIdent := protogen.GoIdent{
+					GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+					GoName:       "NewNullValue",
+				}
+				g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
+			} else {
+				g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
+			}
+		} else {
+			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+			g.P("x.", field.Oneof.GoName, " = nil")
+			g.P("}")
+		}
+		g.P("} else {")
 		if len(field.Parent.Oneofs) > 64 {
 			g.P("if seenOneofs[", oneofIndex, "] {")
 			g.P("return false, ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(", strconvQuote(field.Desc.JSONName()), ")")
@@ -607,21 +620,6 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 		return
 	}
 	if field.Oneof != nil && !field.Oneof.Desc.IsSynthetic() {
-		g.P("if d.ReadNull() {")
-		if isWKTValue(field) {
-			nullValueIdent := protogen.GoIdent{
-				GoImportPath: "google.golang.org/protobuf/types/known/structpb",
-				GoName:       "NewNullValue",
-			}
-			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
-		} else if isWKTNullValue(field) {
-			g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
-		} else {
-			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
-			g.P("x.", field.Oneof.GoName, " = nil")
-			g.P("}")
-		}
-		g.P("} else {")
 		oneofIndex := -1
 		for idx, oo := range field.Parent.Oneofs {
 			if oo == field.Oneof {
@@ -629,6 +627,34 @@ func generateFieldUnmarshal(g *protogen.GeneratedFile, helperPackage protogen.Go
 				break
 			}
 		}
+		g.P("if d.ReadNull() {")
+		if isWKTValue(field) || isWKTNullValue(field) {
+			if len(field.Parent.Oneofs) > 64 {
+				g.P("if seenOneofs[", oneofIndex, "] {")
+				g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
+				g.P("}")
+				g.P("seenOneofs[", oneofIndex, "] = true")
+			} else {
+				g.P("if seenOneofs & (1 << ", oneofIndex, ") != 0 {")
+				g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")
+				g.P("}")
+				g.P("seenOneofs |= (1 << ", oneofIndex, ")")
+			}
+			if isWKTValue(field) {
+				nullValueIdent := protogen.GoIdent{
+					GoImportPath: "google.golang.org/protobuf/types/known/structpb",
+					GoName:       "NewNullValue",
+				}
+				g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": ", g.QualifiedGoIdent(nullValueIdent), "()}")
+			} else {
+				g.P("x.", field.Oneof.GoName, " = &", field.GoIdent, "{", field.GoName, ": 0}")
+			}
+		} else {
+			g.P("if _, ok := x.", field.Oneof.GoName, ".(*", field.GoIdent, "); ok {")
+			g.P("x.", field.Oneof.GoName, " = nil")
+			g.P("}")
+		}
+		g.P("} else {")
 		if len(field.Parent.Oneofs) > 64 {
 			g.P("if seenOneofs[", oneofIndex, "] {")
 			g.P("return ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "DuplicateField"}), "(key)")

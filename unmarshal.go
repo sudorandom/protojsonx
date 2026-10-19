@@ -825,11 +825,17 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 
 // clearMissing applies protobuf default semantics for fields that were absent
 // from a successful object decode.
-func (table *MessageTable) clearMissing(ptr unsafe.Pointer, seen uint64) {
+func (table *MessageTable) clearMissing(ptr unsafe.Pointer, seen uint64, seenOneofs *oneofTracker) {
 	var pref protoreflect.Message
 	for i := range table.fields {
 		if seen&(uint64(1)<<uint(i)) == 0 {
-			table.clearFieldWithReflect(ptr, &table.fields[i], &pref)
+			inst := &table.fields[i]
+			if inst.ftype == TypeOneofField && seenOneofs != nil {
+				if od := inst.fd.ContainingOneof(); od != nil && seenOneofs.has(od.Index()) {
+					continue
+				}
+			}
+			table.clearFieldWithReflect(ptr, inst, &pref)
 		}
 	}
 }
@@ -887,7 +893,15 @@ func (table *MessageTable) clearFieldWithReflect(ptr unsafe.Pointer, inst *field
 		*(*map[string]string)(fieldPtr) = nil
 	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty, TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
 		*(*unsafe.Pointer)(fieldPtr) = nil
-	case TypeOneofField, TypeMapField:
+	case TypeOneofField:
+		if inst.isOptional && *(*[2]unsafe.Pointer)(fieldPtr) == ([2]unsafe.Pointer{}) {
+			return
+		}
+		if *pref == nil {
+			*pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+		}
+		(*pref).Clear(inst.fd)
+	case TypeMapField:
 		if *pref == nil {
 			*pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
 		}
@@ -895,6 +909,19 @@ func (table *MessageTable) clearFieldWithReflect(ptr unsafe.Pointer, inst *field
 	case TypeRepeatedMessage:
 		*(*[]unsafe.Pointer)(fieldPtr) = nil
 	}
+}
+
+func isNullPopulatedOneof(fd protoreflect.FieldDescriptor) bool {
+	if fd == nil {
+		return false
+	}
+	if fd.Kind() == protoreflect.EnumKind && fd.Enum().FullName() == "google.protobuf.NullValue" {
+		return true
+	}
+	if fd.Kind() == protoreflect.MessageKind && fd.Message().FullName() == "google.protobuf.Value" {
+		return true
+	}
+	return false
 }
 
 // isZero checks the supported protobuf field storage without touching runtime
@@ -991,6 +1018,12 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 				return false
 			}
 		case TypeOneofField:
+			if inst.isOptional {
+				if *(*[2]unsafe.Pointer)(fieldPtr) != ([2]unsafe.Pointer{}) {
+					return false
+				}
+				continue
+			}
 			if pref == nil {
 				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
 			}
@@ -1095,7 +1128,7 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 			}
 			return err
 		}
-		if inst.ftype == TypeOneofField && !d.peekNull() {
+		if inst.ftype == TypeOneofField && (!d.peekNull() || isNullPopulatedOneof(inst.fd)) {
 			od := inst.fd.ContainingOneof()
 			if od != nil {
 				idx := od.Index()
@@ -1119,7 +1152,7 @@ func (table *MessageTable) unmarshalFrom(ptr unsafe.Pointer, d *decBuffer, opts 
 		allSeen = (uint64(1) << uint(len(table.fields))) - 1
 	}
 	if seen != allSeen {
-		table.clearMissing(ptr, seen)
+		table.clearMissing(ptr, seen, &seenOneofs)
 	}
 	return nil
 }
@@ -1149,7 +1182,7 @@ func (table *MessageTable) unmarshalField(ptr unsafe.Pointer, d *decBuffer, opts
 		}
 		return err
 	}
-	if inst.ftype == TypeOneofField && !d.peekNull() {
+	if inst.ftype == TypeOneofField && (!d.peekNull() || isNullPopulatedOneof(inst.fd)) {
 		od := inst.fd.ContainingOneof()
 		if od != nil {
 			idx := od.Index()
@@ -2528,65 +2561,7 @@ func unmarshalProtoreflectValue(fd protoreflect.FieldDescriptor, target protoref
 			return protoreflect.ValueOfMessage(target), nil
 		}
 		subMsgPtr := reflect.ValueOf(msg).UnsafePointer()
-		if len(subTable.fields) > 64 {
-			subTable.resetIfNeeded(subMsgPtr)
-			seen := make(map[*fieldInstruction]struct{}, len(subTable.fields))
-			seenExts := make(map[string]struct{})
-			var seenOneofs oneofTracker
-			if subTable.oneofCount > 64 {
-				seenOneofs.slice = make([]bool, subTable.oneofCount)
-			}
-			err = d.parseObject(func(key []byte) error {
-				return subTable.unmarshalField(subMsgPtr, d, opts, key, seen, seenExts, &seenOneofs)
-			})
-		} else {
-			var seen uint64
-			var seenExts map[string]struct{}
-			var seenOneofs oneofTracker
-			if subTable.oneofCount > 64 {
-				seenOneofs.slice = make([]bool, subTable.oneofCount)
-			}
-			err = d.parseObject(func(key []byte) error {
-				if len(key) > 2 && key[0] == '[' && key[len(key)-1] == ']' {
-					extName := string(key[1 : len(key)-1])
-					xt, errExt := protoregistry.GlobalTypes.FindExtensionByName(protoreflect.FullName(extName))
-					if errExt == nil {
-						if seenExts == nil {
-							seenExts = make(map[string]struct{})
-						}
-						if _, ok := seenExts[extName]; ok {
-							return fmt.Errorf("duplicate field: %q", string(key))
-						}
-						seenExts[extName] = struct{}{}
-						return unmarshalExtensionField(target, xt, d, opts)
-					}
-				}
-				inst, err := subTable.unmarshalFieldInstruction(key, opts)
-				if err != nil {
-					if opts.DiscardUnknown && err == errUnknownField {
-						return d.skipValue()
-					}
-					return err
-				}
-				if inst.ftype == TypeOneofField && !d.peekNull() {
-					od := inst.fd.ContainingOneof()
-					if od != nil {
-						idx := od.Index()
-						if seenOneofs.has(idx) {
-							return fmt.Errorf("duplicate oneof field: %s", key)
-						}
-						seenOneofs.set(idx)
-					}
-				}
-				idx := uint(inst.index)
-				if (seen & (1 << idx)) != 0 {
-					return errors.New("duplicate field: " + unsafeString(key))
-				}
-				seen |= 1 << idx
-				return subTable.unmarshalKnownField(subMsgPtr, d, opts, inst)
-			})
-		}
-		if err != nil {
+		if err := subTable.unmarshalFrom(subMsgPtr, d, opts); err != nil {
 			return protoreflect.Value{}, err
 		}
 		return protoreflect.ValueOfMessage(target), nil
