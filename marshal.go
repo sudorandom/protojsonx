@@ -15,22 +15,23 @@ package protojsonx
 // silently dropping fields during marshal.
 
 import (
+	"cmp"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"strconv"
+	"strings"
 	"sync"
-	"time"
 	"unsafe"
 
-	"fmt"
-	"google.golang.org/protobuf/proto"
+	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
-	"slices"
-	"strings"
 )
 
 // encBufPool reuses the scratch buffer used while building JSON. Marshal still
@@ -142,7 +143,6 @@ func (b *encBuffer) writeBool(v bool) {
 	}
 }
 
-
 type MarshalOptions struct {
 	EmitUnpopulated bool
 	UseProtoNames   bool
@@ -212,62 +212,21 @@ func (o MarshalOptions) Marshal(msg proto.Message) ([]byte, error) {
 	return out, nil
 }
 
+// writeTimestampString emits protobuf Timestamp JSON directly into the buffer
+// without constructing an intermediate string.
+func (b *encBuffer) writeTimestampString(secs int64, nanos int32) {
+	b.writeByte('"')
+	b.buf = protojsonxgen.AppendTimestamp(b.buf, secs, nanos)
+	b.writeByte('"')
+}
+
 // writeDurationString emits protobuf Duration JSON without constructing an
 // intermediate string. Duration precision is integer-based so large durations
 // do not lose nanoseconds through float64 rounding.
 func (b *encBuffer) writeDurationString(secs int64, nanos int32) {
 	b.writeByte('"')
-	if nanos == 0 {
-		b.buf = strconv.AppendInt(b.buf, secs, 10)
-		b.buf = append(b.buf, 's', '"')
-		return
-	}
-
-	neg := secs < 0 || nanos < 0
-	if secs < 0 {
-		secs = -secs
-	}
-	if nanos < 0 {
-		nanos = -nanos
-	}
-
-	fracWidth := 9
-	if nanos%1_000_000 == 0 {
-		fracWidth = 3
-		nanos /= 1_000_000
-	} else if nanos%1_000 == 0 {
-		fracWidth = 6
-		nanos /= 1_000
-	}
-
-	if neg {
-		b.writeByte('-')
-	}
-	b.buf = strconv.AppendInt(b.buf, secs, 10)
-	b.writeByte('.')
-	b.appendPaddedInt32(nanos, fracWidth)
-	b.buf = append(b.buf, 's', '"')
-}
-
-// appendPaddedInt32 appends a fractional seconds component already scaled to
-// milliseconds, microseconds, or nanoseconds.
-func (b *encBuffer) appendPaddedInt32(v int32, width int) {
-	var tmp [10]byte
-	i := len(tmp)
-	for {
-		i--
-		tmp[i] = byte(v%10) + '0'
-		v /= 10
-		width--
-		if v == 0 {
-			break
-		}
-	}
-	for width > 0 {
-		b.writeByte('0')
-		width--
-	}
-	b.buf = append(b.buf, tmp[i:]...)
+	b.buf = protojsonxgen.AppendDuration(b.buf, secs, nanos)
+	b.writeByte('"')
 }
 
 // marshalTo is the recursive encoder used for both root and nested messages.
@@ -832,7 +791,7 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 				b.buf = append(b.buf, '"')
 				b.buf = append(b.buf, fieldName...)
 				b.buf = append(b.buf, `":`...)
-				b.writeEscapedString(formatTimestamp(secs, nanos))
+				b.writeTimestampString(secs, nanos)
 				wroteAny = true
 			} else if opts.EmitUnpopulated {
 				if wroteAny {
@@ -1153,6 +1112,13 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 					}
 					if itemPtr != nil {
 						var err error
+						if inst.msgNeedsWait {
+							if err = inst.msgTable.wait(); err != nil {
+								return err
+							}
+						} else if inst.msgTable.err != nil {
+							return inst.msgTable.err
+						}
 						if isCustomWellKnown(inst.msgTable.fullName) {
 							msg := reflect.NewAt(inst.elemType, itemPtr).Interface().(proto.Message)
 							err = marshalCustomWellKnown(msg, b, opts)
@@ -1167,13 +1133,6 @@ func (table *MessageTable) marshalTo(ptr unsafe.Pointer, b *encBuffer, opts Mars
 								b.buf = append(b.buf, subData...)
 							}
 						} else {
-							if inst.msgNeedsWait {
-								if err = inst.msgTable.wait(); err != nil {
-									return err
-								}
-							} else if inst.msgTable.err != nil {
-								return inst.msgTable.err
-							}
 							err = inst.msgTable.marshalTo(itemPtr, b, opts)
 						}
 						if err != nil {
@@ -1216,7 +1175,7 @@ func (table *MessageTable) marshalExtensions(ptr unsafe.Pointer, pref protorefle
 		return true
 	})
 	slices.SortFunc(exts, func(a, b extItem) int {
-		return int(a.fd.Number()) - int(b.fd.Number())
+		return cmp.Compare(a.fd.Number(), b.fd.Number())
 	})
 	for _, ext := range exts {
 		if wroteAny {
@@ -1288,7 +1247,7 @@ func marshalCustomWellKnown(msg proto.Message, b *encBuffer, opts MarshalOptions
 		if err := validateTimestamp(secs, int32(nanos)); err != nil {
 			return err
 		}
-		b.writeEscapedString(formatTimestamp(secs, int32(nanos)))
+		b.writeTimestampString(secs, int32(nanos))
 		return nil
 	case "google.protobuf.Duration":
 		fdSec := pref.Descriptor().Fields().ByNumber(1)
@@ -1329,7 +1288,7 @@ func marshalCustomWellKnown(msg proto.Message, b *encBuffer, opts MarshalOptions
 		case "google.protobuf.StringValue":
 			b.writeEscapedString(val.String())
 		case "google.protobuf.BytesValue":
-			b.writeEscapedString(base64.StdEncoding.EncodeToString(val.Bytes()))
+			b.writeBytes(val.Bytes())
 		}
 		return nil
 	case "google.protobuf.FieldMask":
@@ -1737,60 +1696,4 @@ func marshalMap(pref protoreflect.Message, inst *fieldInstruction, b *encBuffer,
 	}
 	b.writeByte('}')
 	return nil
-}
-
-func formatTimestamp(secs int64, nanos int32) string {
-	t := time.Unix(secs, int64(nanos)).UTC()
-	base := t.Format("2006-01-02T15:04:05")
-	if nanos == 0 {
-		return base + "Z"
-	}
-	var b strings.Builder
-	b.Grow(30)
-	b.WriteString(base)
-	b.WriteByte('.')
-	if nanos%1000000 == 0 {
-		ms := nanos / 1000000
-		if ms < 10 {
-			b.WriteString("00")
-		} else if ms < 100 {
-			b.WriteByte('0')
-		}
-		b.WriteString(strconv.Itoa(int(ms)))
-	} else if nanos%1000 == 0 {
-		us := nanos / 1000
-		if us < 10 {
-			b.WriteString("00000")
-		} else if us < 100 {
-			b.WriteString("0000")
-		} else if us < 1000 {
-			b.WriteString("000")
-		} else if us < 10000 {
-			b.WriteString("00")
-		} else if us < 100000 {
-			b.WriteByte('0')
-		}
-		b.WriteString(strconv.Itoa(int(us)))
-	} else {
-		if nanos < 10 {
-			b.WriteString("00000000")
-		} else if nanos < 100 {
-			b.WriteString("0000000")
-		} else if nanos < 1000 {
-			b.WriteString("000000")
-		} else if nanos < 10000 {
-			b.WriteString("00000")
-		} else if nanos < 100000 {
-			b.WriteString("0000")
-		} else if nanos < 1000000 {
-			b.WriteString("000")
-		} else if nanos < 10000000 {
-			b.WriteString("00")
-		} else if nanos < 100000000 {
-			b.WriteByte('0')
-		}
-		b.WriteString(strconv.Itoa(int(nanos)))
-	}
-	b.WriteByte('Z')
-	return b.String()
 }

@@ -226,17 +226,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.DoubleField = 0
-		} else {
-			v, err := d.ReadFloat64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.DoubleField = 0
+			} else {
+				v, err := d.ReadFloat64()
+				if err != nil {
+					return false, err
+				}
+				x.DoubleField = v
 			}
-			x.DoubleField = v
 		}
 	}
 	{
@@ -247,17 +246,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.FloatField = 0
-		} else {
-			v, err := d.ReadFloat32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.FloatField = 0
+			} else {
+				v, err := d.ReadFloat32()
+				if err != nil {
+					return false, err
+				}
+				x.FloatField = v
 			}
-			x.FloatField = v
 		}
 	}
 	{
@@ -268,17 +266,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Int32Field = 0
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Int32Field = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Int32Field = v
 			}
-			x.Int32Field = v
 		}
 	}
 	{
@@ -289,17 +286,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Int64Field = 0
-		} else {
-			v, err := d.ReadInt64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Int64Field = 0
+			} else {
+				v, err := d.ReadInt64()
+				if err != nil {
+					return false, err
+				}
+				x.Int64Field = v
 			}
-			x.Int64Field = v
 		}
 	}
 	{
@@ -310,17 +306,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Uint32Field = 0
-		} else {
-			v, err := d.ReadUint32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Uint32Field = 0
+			} else {
+				v, err := d.ReadUint32()
+				if err != nil {
+					return false, err
+				}
+				x.Uint32Field = v
 			}
-			x.Uint32Field = v
 		}
 	}
 	{
@@ -331,17 +326,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Uint64Field = 0
-		} else {
-			v, err := d.ReadUint64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Uint64Field = 0
+			} else {
+				v, err := d.ReadUint64()
+				if err != nil {
+					return false, err
+				}
+				x.Uint64Field = v
 			}
-			x.Uint64Field = v
 		}
 	}
 	{
@@ -352,17 +346,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Sint32Field = 0
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Sint32Field = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Sint32Field = v
 			}
-			x.Sint32Field = v
 		}
 	}
 	{
@@ -373,17 +366,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Sint64Field = 0
-		} else {
-			v, err := d.ReadInt64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Sint64Field = 0
+			} else {
+				v, err := d.ReadInt64()
+				if err != nil {
+					return false, err
+				}
+				x.Sint64Field = v
 			}
-			x.Sint64Field = v
 		}
 	}
 	{
@@ -394,17 +386,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Fixed32Field = 0
-		} else {
-			v, err := d.ReadUint32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Fixed32Field = 0
+			} else {
+				v, err := d.ReadUint32()
+				if err != nil {
+					return false, err
+				}
+				x.Fixed32Field = v
 			}
-			x.Fixed32Field = v
 		}
 	}
 	{
@@ -415,17 +406,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Fixed64Field = 0
-		} else {
-			v, err := d.ReadUint64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Fixed64Field = 0
+			} else {
+				v, err := d.ReadUint64()
+				if err != nil {
+					return false, err
+				}
+				x.Fixed64Field = v
 			}
-			x.Fixed64Field = v
 		}
 	}
 	{
@@ -436,17 +426,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Sfixed32Field = 0
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Sfixed32Field = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Sfixed32Field = v
 			}
-			x.Sfixed32Field = v
 		}
 	}
 	{
@@ -457,17 +446,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Sfixed64Field = 0
-		} else {
-			v, err := d.ReadInt64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Sfixed64Field = 0
+			} else {
+				v, err := d.ReadInt64()
+				if err != nil {
+					return false, err
+				}
+				x.Sfixed64Field = v
 			}
-			x.Sfixed64Field = v
 		}
 	}
 	{
@@ -478,17 +466,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.BoolField = false
-		} else {
-			v, err := d.ReadBool()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.BoolField = false
+			} else {
+				v, err := d.ReadBool()
+				if err != nil {
+					return false, err
+				}
+				x.BoolField = v
 			}
-			x.BoolField = v
 		}
 	}
 	{
@@ -499,17 +486,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.StringField = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.StringField = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.StringField = v
 			}
-			x.StringField = v
 		}
 	}
 	{
@@ -520,17 +506,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.BytesField = nil
-		} else {
-			v, err := d.ReadBytes()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.BytesField = nil
+			} else {
+				v, err := d.ReadBytes()
+				if err != nil {
+					return false, err
+				}
+				x.BytesField = v
 			}
-			x.BytesField = v
 		}
 	}
 	{
@@ -541,23 +526,22 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.EnumField = 0
-		} else {
-			var v TestEnum
-			val, err := unmarshalEnum_TestEnum(d)
-			if err != nil {
-				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
-				} else {
-					return false, err
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.EnumField = 0
 			} else {
-				v = val
+				var v TestEnum
+				val, err := unmarshalEnum_TestEnum(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
+						return false, err
+					}
+				} else {
+					v = val
+				}
+				x.EnumField = v
 			}
-			x.EnumField = v
 		}
 	}
 	{
@@ -568,17 +552,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.TimestampField = nil
-		} else {
-			secs, nanos, err := d.ReadTimestamp()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.TimestampField = nil
+			} else {
+				secs, nanos, err := d.ReadTimestamp()
+				if err != nil {
+					return false, err
+				}
+				x.TimestampField = &timestamppb.Timestamp{Seconds: secs, Nanos: nanos}
 			}
-			x.TimestampField = &timestamppb.Timestamp{Seconds: secs, Nanos: nanos}
 		}
 	}
 	{
@@ -589,17 +572,16 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.DurationField = nil
-		} else {
-			secs, nanos, err := d.ReadDuration()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.DurationField = nil
+			} else {
+				secs, nanos, err := d.ReadDuration()
+				if err != nil {
+					return false, err
+				}
+				x.DurationField = &durationpb.Duration{Seconds: secs, Nanos: nanos}
 			}
-			x.DurationField = &durationpb.Duration{Seconds: secs, Nanos: nanos}
 		}
 	}
 	{
@@ -610,24 +592,36 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.ChildField = nil
-		} else {
-			x.ChildField = &ChildMessage{}
-			if fast, ok := any(x.ChildField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.ChildField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.ChildField, discardUnknown); err != nil {
-					return false, err
+				x.ChildField = &ChildMessage{}
+				if fast, ok := any(x.ChildField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.ChildField = ChildMessage{}
+						if slow, ok := any(x.ChildField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.ChildField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.ChildField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -640,35 +634,34 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedString = nil
-		} else {
-			values := x.RepeatedString[:0]
-			if values == nil {
-				values = make([]string, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedString = nil
+			} else {
+				values := x.RepeatedString[:0]
+				if values == nil {
+					values = make([]string, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadString()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedString = values
 			}
-			x.RepeatedString = values
 		}
 	}
 	{
@@ -679,48 +672,60 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedMessage = nil
-		} else {
-			values := x.RepeatedMessage[:0]
-			if values == nil {
-				values = make([]*ChildMessage, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedMessage = nil
+			} else {
+				values := x.RepeatedMessage[:0]
+				if values == nil {
+					values = make([]*ChildMessage, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
-				}
-				if d.ReadNull() {
-					return false, protojsonxgen.NullRepeatedMessage()
-				}
-				v := &ChildMessage{}
-				if fast, ok := any(v).(interface {
-					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-				}); ok {
-					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-						return false, err
-					} else if !ok {
-						return false, nil
-					}
-				} else {
-					if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
 						return false, err
 					}
+					if !elemOK {
+						break
+					}
+					if d.ReadNull() {
+						return false, protojsonxgen.NullRepeatedMessage()
+					}
+					v := &ChildMessage{}
+					if fast, ok := any(v).(interface {
+						unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+					}); ok {
+						nestedOff, nestedDepth := d.Mark()
+						if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+							return false, err
+						} else if !ok {
+							d.Reset(nestedOff, nestedDepth)
+							*v = ChildMessage{}
+							if slow, ok := any(v).(interface {
+								unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+							}); ok {
+								if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+									return false, err
+								}
+							} else {
+								if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+									return false, err
+								}
+							}
+						}
+					} else {
+						if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+							return false, err
+						}
+					}
+					values = append(values, v)
 				}
-				values = append(values, v)
+				x.RepeatedMessage = values
 			}
-			x.RepeatedMessage = values
 		}
 	}
 	{
@@ -731,35 +736,34 @@ func (x *ComplexMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, disca
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.MapStringString = nil
-		} else {
-			m := make(map[string]string)
-			if err := d.BeginObject(); err != nil {
-				return false, err
-			}
-			mapFirst := true
-			for {
-				k, mapOK, err := d.NextObjectKey(&mapFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.MapStringString = nil
+			} else {
+				m := make(map[string]string)
+				if err := d.BeginObject(); err != nil {
 					return false, err
 				}
-				if !mapOK {
-					break
+				mapFirst := true
+				for {
+					k, mapOK, err := d.NextObjectKey(&mapFirst)
+					if err != nil {
+						return false, err
+					}
+					if !mapOK {
+						break
+					}
+					v, err := d.ReadString()
+					if err != nil {
+						return false, err
+					}
+					if _, exists := m[k]; exists {
+						return false, protojsonxgen.DuplicateField(k)
+					}
+					m[k] = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return false, err
-				}
-				if _, exists := m[k]; exists {
-					return false, protojsonxgen.DuplicateField(k)
-				}
-				m[k] = v
+				x.MapStringString = m
 			}
-			x.MapStringString = m
 		}
 	}
 	done, err := d.TryEndObject()
@@ -1279,17 +1283,16 @@ func (x *ChildMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discard
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Name = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Name = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Name = v
 			}
-			x.Name = v
 		}
 	}
 	{
@@ -1300,17 +1303,16 @@ func (x *ChildMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discard
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Value = 0
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Value = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Value = v
 			}
-			x.Value = v
 		}
 	}
 	done, err := d.TryEndObject()
@@ -1612,24 +1614,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.AnyField = nil
-		} else {
-			x.AnyField = &anypb.Any{}
-			if fast, ok := any(x.AnyField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.AnyField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.AnyField, discardUnknown); err != nil {
-					return false, err
+				x.AnyField = &anypb.Any{}
+				if fast, ok := any(x.AnyField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.AnyField = anypb.Any{}
+						if slow, ok := any(x.AnyField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.AnyField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.AnyField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1642,24 +1656,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.EmptyField = nil
-		} else {
-			x.EmptyField = &emptypb.Empty{}
-			if fast, ok := any(x.EmptyField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.EmptyField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.EmptyField, discardUnknown); err != nil {
-					return false, err
+				x.EmptyField = &emptypb.Empty{}
+				if fast, ok := any(x.EmptyField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.EmptyField = emptypb.Empty{}
+						if slow, ok := any(x.EmptyField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.EmptyField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.EmptyField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1672,24 +1698,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.FieldMaskField = nil
-		} else {
-			x.FieldMaskField = &fieldmaskpb.FieldMask{}
-			if fast, ok := any(x.FieldMaskField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.FieldMaskField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.FieldMaskField, discardUnknown); err != nil {
-					return false, err
+				x.FieldMaskField = &fieldmaskpb.FieldMask{}
+				if fast, ok := any(x.FieldMaskField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.FieldMaskField = fieldmaskpb.FieldMask{}
+						if slow, ok := any(x.FieldMaskField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.FieldMaskField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.FieldMaskField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1702,24 +1740,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.DoubleValueField = nil
-		} else {
-			x.DoubleValueField = &wrapperspb.DoubleValue{}
-			if fast, ok := any(x.DoubleValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.DoubleValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.DoubleValueField, discardUnknown); err != nil {
-					return false, err
+				x.DoubleValueField = &wrapperspb.DoubleValue{}
+				if fast, ok := any(x.DoubleValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.DoubleValueField = wrapperspb.DoubleValue{}
+						if slow, ok := any(x.DoubleValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.DoubleValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.DoubleValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1732,24 +1782,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.FloatValueField = nil
-		} else {
-			x.FloatValueField = &wrapperspb.FloatValue{}
-			if fast, ok := any(x.FloatValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.FloatValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.FloatValueField, discardUnknown); err != nil {
-					return false, err
+				x.FloatValueField = &wrapperspb.FloatValue{}
+				if fast, ok := any(x.FloatValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.FloatValueField = wrapperspb.FloatValue{}
+						if slow, ok := any(x.FloatValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.FloatValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.FloatValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1762,24 +1824,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Int64ValueField = nil
-		} else {
-			x.Int64ValueField = &wrapperspb.Int64Value{}
-			if fast, ok := any(x.Int64ValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Int64ValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.Int64ValueField, discardUnknown); err != nil {
-					return false, err
+				x.Int64ValueField = &wrapperspb.Int64Value{}
+				if fast, ok := any(x.Int64ValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.Int64ValueField = wrapperspb.Int64Value{}
+						if slow, ok := any(x.Int64ValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.Int64ValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Int64ValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1792,24 +1866,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Uint64ValueField = nil
-		} else {
-			x.Uint64ValueField = &wrapperspb.UInt64Value{}
-			if fast, ok := any(x.Uint64ValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Uint64ValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.Uint64ValueField, discardUnknown); err != nil {
-					return false, err
+				x.Uint64ValueField = &wrapperspb.UInt64Value{}
+				if fast, ok := any(x.Uint64ValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.Uint64ValueField = wrapperspb.UInt64Value{}
+						if slow, ok := any(x.Uint64ValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.Uint64ValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Uint64ValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1822,24 +1908,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Int32ValueField = nil
-		} else {
-			x.Int32ValueField = &wrapperspb.Int32Value{}
-			if fast, ok := any(x.Int32ValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Int32ValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.Int32ValueField, discardUnknown); err != nil {
-					return false, err
+				x.Int32ValueField = &wrapperspb.Int32Value{}
+				if fast, ok := any(x.Int32ValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.Int32ValueField = wrapperspb.Int32Value{}
+						if slow, ok := any(x.Int32ValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.Int32ValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Int32ValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1852,24 +1950,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Uint32ValueField = nil
-		} else {
-			x.Uint32ValueField = &wrapperspb.UInt32Value{}
-			if fast, ok := any(x.Uint32ValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Uint32ValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.Uint32ValueField, discardUnknown); err != nil {
-					return false, err
+				x.Uint32ValueField = &wrapperspb.UInt32Value{}
+				if fast, ok := any(x.Uint32ValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.Uint32ValueField = wrapperspb.UInt32Value{}
+						if slow, ok := any(x.Uint32ValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.Uint32ValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Uint32ValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1882,24 +1992,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.BoolValueField = nil
-		} else {
-			x.BoolValueField = &wrapperspb.BoolValue{}
-			if fast, ok := any(x.BoolValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.BoolValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.BoolValueField, discardUnknown); err != nil {
-					return false, err
+				x.BoolValueField = &wrapperspb.BoolValue{}
+				if fast, ok := any(x.BoolValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.BoolValueField = wrapperspb.BoolValue{}
+						if slow, ok := any(x.BoolValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.BoolValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.BoolValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1912,24 +2034,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.StringValueField = nil
-		} else {
-			x.StringValueField = &wrapperspb.StringValue{}
-			if fast, ok := any(x.StringValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.StringValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.StringValueField, discardUnknown); err != nil {
-					return false, err
+				x.StringValueField = &wrapperspb.StringValue{}
+				if fast, ok := any(x.StringValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.StringValueField = wrapperspb.StringValue{}
+						if slow, ok := any(x.StringValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.StringValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.StringValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -1942,24 +2076,36 @@ func (x *SpecMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.BytesValueField = nil
-		} else {
-			x.BytesValueField = &wrapperspb.BytesValue{}
-			if fast, ok := any(x.BytesValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.BytesValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.BytesValueField, discardUnknown); err != nil {
-					return false, err
+				x.BytesValueField = &wrapperspb.BytesValue{}
+				if fast, ok := any(x.BytesValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.BytesValueField = wrapperspb.BytesValue{}
+						if slow, ok := any(x.BytesValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.BytesValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.BytesValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -2343,24 +2489,36 @@ func (x *StructMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discar
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.StructField = nil
-		} else {
-			x.StructField = &structpb.Struct{}
-			if fast, ok := any(x.StructField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.StructField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.StructField, discardUnknown); err != nil {
-					return false, err
+				x.StructField = &structpb.Struct{}
+				if fast, ok := any(x.StructField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.StructField = structpb.Struct{}
+						if slow, ok := any(x.StructField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.StructField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.StructField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -2502,24 +2660,36 @@ func (x *ValueMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discard
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.ValueField = structpb.NewNullValue()
-		} else {
-			x.ValueField = &structpb.Value{}
-			if fast, ok := any(x.ValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.ValueField = structpb.NewNullValue()
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.ValueField, discardUnknown); err != nil {
-					return false, err
+				x.ValueField = &structpb.Value{}
+				if fast, ok := any(x.ValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.ValueField = structpb.Value{}
+						if slow, ok := any(x.ValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.ValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.ValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -2661,24 +2831,36 @@ func (x *ListValueMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, dis
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.ListValueField = nil
-		} else {
-			x.ListValueField = &structpb.ListValue{}
-			if fast, ok := any(x.ListValueField).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.ListValueField = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.ListValueField, discardUnknown); err != nil {
-					return false, err
+				x.ListValueField = &structpb.ListValue{}
+				if fast, ok := any(x.ListValueField).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.ListValueField = structpb.ListValue{}
+						if slow, ok := any(x.ListValueField).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.ListValueField, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.ListValueField, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -2914,35 +3096,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedInt32 = nil
-		} else {
-			values := x.RepeatedInt32[:0]
-			if values == nil {
-				values = make([]int32, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedInt32 = nil
+			} else {
+				values := x.RepeatedInt32[:0]
+				if values == nil {
+					values = make([]int32, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadInt32()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadInt32()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedInt32 = values
 			}
-			x.RepeatedInt32 = values
 		}
 	}
 	{
@@ -2953,35 +3134,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedInt64 = nil
-		} else {
-			values := x.RepeatedInt64[:0]
-			if values == nil {
-				values = make([]int64, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedInt64 = nil
+			} else {
+				values := x.RepeatedInt64[:0]
+				if values == nil {
+					values = make([]int64, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadInt64()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadInt64()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedInt64 = values
 			}
-			x.RepeatedInt64 = values
 		}
 	}
 	{
@@ -2992,35 +3172,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedUint32 = nil
-		} else {
-			values := x.RepeatedUint32[:0]
-			if values == nil {
-				values = make([]uint32, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedUint32 = nil
+			} else {
+				values := x.RepeatedUint32[:0]
+				if values == nil {
+					values = make([]uint32, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadUint32()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadUint32()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedUint32 = values
 			}
-			x.RepeatedUint32 = values
 		}
 	}
 	{
@@ -3031,35 +3210,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedUint64 = nil
-		} else {
-			values := x.RepeatedUint64[:0]
-			if values == nil {
-				values = make([]uint64, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedUint64 = nil
+			} else {
+				values := x.RepeatedUint64[:0]
+				if values == nil {
+					values = make([]uint64, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadUint64()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadUint64()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedUint64 = values
 			}
-			x.RepeatedUint64 = values
 		}
 	}
 	{
@@ -3070,35 +3248,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedFloat = nil
-		} else {
-			values := x.RepeatedFloat[:0]
-			if values == nil {
-				values = make([]float32, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedFloat = nil
+			} else {
+				values := x.RepeatedFloat[:0]
+				if values == nil {
+					values = make([]float32, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadFloat32()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadFloat32()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedFloat = values
 			}
-			x.RepeatedFloat = values
 		}
 	}
 	{
@@ -3109,35 +3286,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedDouble = nil
-		} else {
-			values := x.RepeatedDouble[:0]
-			if values == nil {
-				values = make([]float64, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedDouble = nil
+			} else {
+				values := x.RepeatedDouble[:0]
+				if values == nil {
+					values = make([]float64, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadFloat64()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadFloat64()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedDouble = values
 			}
-			x.RepeatedDouble = values
 		}
 	}
 	{
@@ -3148,35 +3324,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedBool = nil
-		} else {
-			values := x.RepeatedBool[:0]
-			if values == nil {
-				values = make([]bool, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedBool = nil
+			} else {
+				values := x.RepeatedBool[:0]
+				if values == nil {
+					values = make([]bool, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadBool()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadBool()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedBool = values
 			}
-			x.RepeatedBool = values
 		}
 	}
 	{
@@ -3187,35 +3362,34 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedBytes = nil
-		} else {
-			values := x.RepeatedBytes[:0]
-			if values == nil {
-				values = make([][]byte, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedBytes = nil
+			} else {
+				values := x.RepeatedBytes[:0]
+				if values == nil {
+					values = make([][]byte, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadBytes()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadBytes()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedBytes = values
 			}
-			x.RepeatedBytes = values
 		}
 	}
 	{
@@ -3226,39 +3400,38 @@ func (x *RepeatedScalarsMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decode
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedEnum = nil
-		} else {
-			values := x.RepeatedEnum[:0]
-			if values == nil {
-				values = make([]TestEnum, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedEnum = nil
+			} else {
+				values := x.RepeatedEnum[:0]
+				if values == nil {
+					values = make([]TestEnum, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
-				}
-				val, err := unmarshalEnum_TestEnum(d)
-				if err != nil {
-					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
-					} else {
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
 						return false, err
 					}
-				} else {
-					values = append(values, val)
+					if !elemOK {
+						break
+					}
+					val, err := unmarshalEnum_TestEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
+							return false, err
+						}
+					} else {
+						values = append(values, val)
+					}
 				}
+				x.RepeatedEnum = values
 			}
-			x.RepeatedEnum = values
 		}
 	}
 	done, err := d.TryEndObject()
@@ -3776,23 +3949,22 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			if _, ok := x.Choice.(*CompatibilityMessage_NameChoice); ok {
-				x.Choice = nil
+		if status > 0 {
+			if d.ReadNull() {
+				if _, ok := x.Choice.(*CompatibilityMessage_NameChoice); ok {
+					x.Choice = nil
+				}
+			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return false, protojsonxgen.DuplicateField("nameChoice")
+				}
+				seenOneofs |= (1 << 0)
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Choice = &CompatibilityMessage_NameChoice{NameChoice: v}
 			}
-		} else {
-			if seenOneofs&(1<<0) != 0 {
-				return false, protojsonxgen.DuplicateField("nameChoice")
-			}
-			seenOneofs |= (1 << 0)
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
-			}
-			x.Choice = &CompatibilityMessage_NameChoice{NameChoice: v}
 		}
 	}
 	{
@@ -3803,23 +3975,22 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			if _, ok := x.Choice.(*CompatibilityMessage_NumberChoice); ok {
-				x.Choice = nil
+		if status > 0 {
+			if d.ReadNull() {
+				if _, ok := x.Choice.(*CompatibilityMessage_NumberChoice); ok {
+					x.Choice = nil
+				}
+			} else {
+				if seenOneofs&(1<<0) != 0 {
+					return false, protojsonxgen.DuplicateField("numberChoice")
+				}
+				seenOneofs |= (1 << 0)
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Choice = &CompatibilityMessage_NumberChoice{NumberChoice: v}
 			}
-		} else {
-			if seenOneofs&(1<<0) != 0 {
-				return false, protojsonxgen.DuplicateField("numberChoice")
-			}
-			seenOneofs |= (1 << 0)
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
-			}
-			x.Choice = &CompatibilityMessage_NumberChoice{NumberChoice: v}
 		}
 	}
 	{
@@ -3830,33 +4001,45 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			if _, ok := x.Choice.(*CompatibilityMessage_ChildChoice); ok {
-				x.Choice = nil
-			}
-		} else {
-			if seenOneofs&(1<<0) != 0 {
-				return false, protojsonxgen.DuplicateField("childChoice")
-			}
-			seenOneofs |= (1 << 0)
-			v := &ChildMessage{}
-			if fast, ok := any(v).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
+		if status > 0 {
+			if d.ReadNull() {
+				if _, ok := x.Choice.(*CompatibilityMessage_ChildChoice); ok {
+					x.Choice = nil
 				}
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
-					return false, err
+				if seenOneofs&(1<<0) != 0 {
+					return false, protojsonxgen.DuplicateField("childChoice")
 				}
+				seenOneofs |= (1 << 0)
+				v := &ChildMessage{}
+				if fast, ok := any(v).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*v = ChildMessage{}
+						if slow, ok := any(v).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+						return false, err
+					}
+				}
+				x.Choice = &CompatibilityMessage_ChildChoice{ChildChoice: v}
 			}
-			x.Choice = &CompatibilityMessage_ChildChoice{ChildChoice: v}
 		}
 	}
 	{
@@ -3867,17 +4050,16 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.OptionalString = nil
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.OptionalString = nil
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.OptionalString = &v
 			}
-			x.OptionalString = &v
 		}
 	}
 	{
@@ -3888,17 +4070,16 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.OptionalInt32 = nil
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.OptionalInt32 = nil
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.OptionalInt32 = &v
 			}
-			x.OptionalInt32 = &v
 		}
 	}
 	{
@@ -3909,35 +4090,34 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedInt32 = nil
-		} else {
-			values := x.RepeatedInt32[:0]
-			if values == nil {
-				values = make([]int32, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedInt32 = nil
+			} else {
+				values := x.RepeatedInt32[:0]
+				if values == nil {
+					values = make([]int32, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadInt32()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadInt32()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedInt32 = values
 			}
-			x.RepeatedInt32 = values
 		}
 	}
 	{
@@ -3948,35 +4128,34 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedBool = nil
-		} else {
-			values := x.RepeatedBool[:0]
-			if values == nil {
-				values = make([]bool, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedBool = nil
+			} else {
+				values := x.RepeatedBool[:0]
+				if values == nil {
+					values = make([]bool, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadBool()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadBool()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedBool = values
 			}
-			x.RepeatedBool = values
 		}
 	}
 	{
@@ -3987,35 +4166,34 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedBytes = nil
-		} else {
-			values := x.RepeatedBytes[:0]
-			if values == nil {
-				values = make([][]byte, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedBytes = nil
+			} else {
+				values := x.RepeatedBytes[:0]
+				if values == nil {
+					values = make([][]byte, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadBytes()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadBytes()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.RepeatedBytes = values
 			}
-			x.RepeatedBytes = values
 		}
 	}
 	{
@@ -4026,39 +4204,38 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.RepeatedEnum = nil
-		} else {
-			values := x.RepeatedEnum[:0]
-			if values == nil {
-				values = make([]TestEnum, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.RepeatedEnum = nil
+			} else {
+				values := x.RepeatedEnum[:0]
+				if values == nil {
+					values = make([]TestEnum, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
-				}
-				val, err := unmarshalEnum_TestEnum(d)
-				if err != nil {
-					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
-					} else {
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
 						return false, err
 					}
-				} else {
-					values = append(values, val)
+					if !elemOK {
+						break
+					}
+					val, err := unmarshalEnum_TestEnum(d)
+					if err != nil {
+						if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+						} else {
+							return false, err
+						}
+					} else {
+						values = append(values, val)
+					}
 				}
+				x.RepeatedEnum = values
 			}
-			x.RepeatedEnum = values
 		}
 	}
 	{
@@ -4069,19 +4246,18 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.MapStringInt32 = nil
-		} else {
-			m := make(map[string]int32)
-			if err := protojsonxgen.ReadMap(d, m,
-				func(s string) (string, error) { return s, nil },
-				func(d *protojsonxgen.Decoder) (int32, error) { return d.ReadInt32() }); err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.MapStringInt32 = nil
+			} else {
+				m := make(map[string]int32)
+				if err := protojsonxgen.ReadMap(d, m,
+					func(s string) (string, error) { return s, nil },
+					func(d *protojsonxgen.Decoder) (int32, error) { return d.ReadInt32() }); err != nil {
+					return false, err
+				}
+				x.MapStringInt32 = m
 			}
-			x.MapStringInt32 = m
 		}
 	}
 	{
@@ -4092,19 +4268,18 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.MapInt32String = nil
-		} else {
-			m := make(map[int32]string)
-			if err := protojsonxgen.ReadMap(d, m,
-				func(s string) (int32, error) { val, err := strconv.ParseInt(s, 10, 32); return int32(val), err },
-				func(d *protojsonxgen.Decoder) (string, error) { return d.ReadString() }); err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.MapInt32String = nil
+			} else {
+				m := make(map[int32]string)
+				if err := protojsonxgen.ReadMap(d, m,
+					func(s string) (int32, error) { val, err := strconv.ParseInt(s, 10, 32); return int32(val), err },
+					func(d *protojsonxgen.Decoder) (string, error) { return d.ReadString() }); err != nil {
+					return false, err
+				}
+				x.MapInt32String = m
 			}
-			x.MapInt32String = m
 		}
 	}
 	{
@@ -4115,21 +4290,20 @@ func (x *CompatibilityMessage) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder,
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.MapStringMessage = nil
-		} else {
-			m := make(map[string]*ChildMessage)
-			if err := protojsonxgen.ReadMap(d, m,
-				func(s string) (string, error) { return s, nil },
-				func(d *protojsonxgen.Decoder) (*ChildMessage, error) {
-					return protojsonxgen.UnmarshalMessageMapValue[ChildMessage](d, discardUnknown)
-				}); err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.MapStringMessage = nil
+			} else {
+				m := make(map[string]*ChildMessage)
+				if err := protojsonxgen.ReadMap(d, m,
+					func(s string) (string, error) { return s, nil },
+					func(d *protojsonxgen.Decoder) (*ChildMessage, error) {
+						return protojsonxgen.UnmarshalMessageMapValue[ChildMessage](d, discardUnknown)
+					}); err != nil {
+					return false, err
+				}
+				x.MapStringMessage = m
 			}
-			x.MapStringMessage = m
 		}
 	}
 	done, err := d.TryEndObject()

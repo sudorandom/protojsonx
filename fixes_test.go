@@ -75,3 +75,44 @@ func TestNilReceiverSafety(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "non-nil pointer")
 }
+
+// TestFastPathWithOmittedAndShuffledNestedFields verifies that the generated
+// ordered fast path succeeds when intermediate fields are omitted and when a
+// nested message has out-of-order fields.
+func TestFastPathWithOmittedAndShuffledNestedFields(t *testing.T) {
+	// Email and Age are omitted, and Address has keys out of proto definition order.
+	jsonInput := []byte(`{"id":"u1","name":"Alice","isActive":true,"address":{"country":"USA","street":"123 Main St"}}`)
+	var msg testpb.UserProfile
+	err := msg.UnmarshalProtoJSONX(jsonInput)
+	require.NoError(t, err)
+	assert.Equal(t, "u1", msg.Id)
+	assert.Equal(t, "Alice", msg.Name)
+	assert.True(t, msg.IsActive)
+	require.NotNil(t, msg.Address)
+	assert.Equal(t, "USA", msg.Address.Country)
+	assert.Equal(t, "123 Main St", msg.Address.Street)
+}
+
+// TestFloatPrecisionMatchesParseFloat verifies that generated float32/float64
+// decoding has 0-ULP drift relative to strconv.ParseFloat.
+func TestFloatPrecisionMatchesParseFloat(t *testing.T) {
+	jsonInput := []byte(`{"doubleField":0.12345678901234567,"floatField":1.0000001788139343}`)
+	var genMsg testpb.ComplexMessage
+	require.NoError(t, genMsg.UnmarshalProtoJSONX(jsonInput))
+
+	var runtimeMsg testpb.ComplexMessage
+	require.NoError(t, (UnmarshalOptions{DisableFastPath: true}).Unmarshal(jsonInput, &runtimeMsg))
+
+	assert.Equal(t, runtimeMsg.DoubleField, genMsg.DoubleField)
+	assert.Equal(t, runtimeMsg.FloatField, genMsg.FloatField)
+}
+
+// TestEscapedStringWithControlCharRejected verifies that unescaped control
+// characters inside strings containing valid escape sequences are rejected.
+func TestEscapedStringWithControlCharRejected(t *testing.T) {
+	jsonInput := []byte("{\"stringField\":\"hello\\n\x01world\"}")
+	var msg testpb.ComplexMessage
+	require.Error(t, (UnmarshalOptions{DisableFastPath: true}).Unmarshal(jsonInput, &msg))
+	require.Error(t, msg.UnmarshalProtoJSONX(jsonInput))
+}
+

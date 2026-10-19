@@ -15,31 +15,32 @@ Requires Go 1.24 or newer.
 
 ## ⚡ Performance
 
-Benchmarks run on an Apple M5 Pro (Go 1.26.4), comparing standard `protojson`, standard binary protobuf wire format (`proto`), and `protojsonx` (using the generated plugin delegate).
+Benchmarks run on an Apple M5 Pro (Go 1.26.4), comparing standard `protojson`, standard binary protobuf wire format (`proto`), `protojsonx` without codegen (runtime table), and `protojsonx` with the `protoc-gen-go-protojsonx` plugin.
 
 ### Marshalling (Serialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 2,416 ns | 62 | 3,314 ns | 69 |
-| `protojsonx` | **447 ns** | **1** | **669 ns** | **4** |
-| `proto` (Binary Wire) | 662 ns | 13 | 600 ns | 9 |
+| `protojson` (Standard Lib) | 2,477 ns | 62 | 3,436 ns | 69 |
+| `proto` (Binary Wire) | 698 ns | 13 | 607 ns | 9 |
+| `protojsonx` (Runtime Table) | **472 ns** | **1** | **656 ns** | **1** |
+| `protojsonx` (Codegen Plugin) | **444 ns** | **1** | **593 ns** | **1** |
 
 ### Unmarshalling (Deserialization)
 
 | Implementation | Simple (ns/op) | Simple (allocs) | Complex (ns/op) | Complex (allocs) |
 |---|---:|---:|---:|---:|
-| `protojson` (Standard Lib) | 4,338 ns | 129 | 5,707 ns | 153 |
-| `protojsonx` | **794 ns** | **28** | **917 ns** | **25** |
-| `proto` (Binary Wire) | 972 ns | 45 | 867 ns | 33 |
+| `protojson` (Standard Lib) | 4,417 ns | 129 | 5,837 ns | 153 |
+| `proto` (Binary Wire) | 1,002 ns | 45 | 863 ns | 33 |
+| `protojsonx` (Runtime Table) | **1,319 ns** | **35** | **1,694 ns** | **28** |
+| `protojsonx` (Codegen Plugin — Shuffled) | **1,075 ns** | **28** | **1,357 ns** | **25** |
+| `protojsonx` (Codegen Plugin — Ordered) | **806 ns** | **28** | **957 ns** | **25** |
 
 ### 🚀 Summary
 
-- **Marshal is about 5-6x faster than `protojson`** with dramatically fewer allocations.
-- **Unmarshal is about 5.5-6x faster than `protojson`**, depending on message shape.
-- **Marshal and Unmarshal are fully competitive with binary protobuf**, outperforming it in simple scenarios and matching it closely in complex scenarios.
-- **Allocations drop sharply**: complex unmarshal falls from **153 allocs/op** with `protojson` to **25 allocs/op** with `protojsonx`, and complex marshal requires only **4 allocs/op**.
-- **Automatic plugin delegation**: `protojsonx` works out-of-the-box using reflection-free code-generated paths if generated with our `protoc` plugin, falling back gracefully to the table-driven reflection engine otherwise.
+- **Marshal**: **5–6x faster** than `protojson` with just **1 alloc/op**, and faster than or on par with binary `proto.Marshal`.
+- **Unmarshal**: **3.5x faster** than `protojson` out-of-the-box (runtime table), and **5.5–6x faster** with the codegen plugin.
+- **Zero-config upgrade**: Works immediately as a drop-in library, and automatically uses generated code when `.protojsonx.pb.go` files are present.
 
 ## How It Works
 

@@ -21,6 +21,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/sudorandom/protojsonx/protojsonxgen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -128,6 +129,9 @@ func (table *MessageTable) wait() error {
 // readyNow lets table compilation detect whether a nested table is already
 // complete. Completed nested tables can avoid a channel wait in the hot path.
 func (table *MessageTable) readyNow() bool {
+	if table.done.Load() {
+		return true
+	}
 	select {
 	case <-table.ready:
 		return true
@@ -245,6 +249,7 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 		oneofCount:         desc.Oneofs().Len(),
 		ready:              make(chan struct{}),
 	}
+	table.done.Store(true)
 	close(table.ready)
 
 	fieldNumToStructField := make(map[protoreflect.FieldNumber]reflect.StructField)
@@ -331,8 +336,9 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 				}
 				inst.elemType = elemType
 				inst.msgTable = compileTableForType(elemType)
-				inst.msgNeedsWait = !inst.msgTable.readyNow()
-				if inst.msgTable.readyNow() && inst.msgTable.err != nil {
+				ready := inst.msgTable.readyNow()
+				inst.msgNeedsWait = !ready
+				if ready && inst.msgTable.err != nil {
 					return nil, inst.msgTable.err
 				}
 			} else {
@@ -536,8 +542,9 @@ func compileTable(msg proto.Message) (*MessageTable, error) {
 					}
 					inst.ftype = TypeMessage
 					inst.msgTable = compileTableForType(structType)
-					inst.msgNeedsWait = !inst.msgTable.readyNow()
-					if inst.msgTable.readyNow() && inst.msgTable.err != nil {
+					ready := inst.msgTable.readyNow()
+					inst.msgNeedsWait = !ready
+					if ready && inst.msgTable.err != nil {
 						return nil, inst.msgTable.err
 					}
 				}
@@ -580,6 +587,7 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 	if !ok {
 		cacheMutex.Lock()
 		table.useProtojson = true
+		table.done.Store(true)
 		close(table.ready)
 		cacheMutex.Unlock()
 		return table
@@ -608,24 +616,9 @@ func compileTableForType(structType reflect.Type) *MessageTable {
 }
 
 func validateTimestamp(secs int64, nanos int32) error {
-	if secs < -62135596800 || secs > 253402300799 {
-		return fmt.Errorf("timestamp: seconds out of range %d", secs)
-	}
-	if nanos < 0 || nanos > 999999999 {
-		return fmt.Errorf("timestamp: nanos out of range %d", nanos)
-	}
-	return nil
+	return protojsonxgen.ValidateTimestamp(secs, nanos)
 }
 
 func validateDuration(secs int64, nanos int32) error {
-	if secs < -315576000000 || secs > 315576000000 {
-		return fmt.Errorf("duration: seconds out of range %d", secs)
-	}
-	if nanos < -999999999 || nanos > 999999999 {
-		return fmt.Errorf("duration: nanos out of range %d", nanos)
-	}
-	if (secs < 0 && nanos > 0) || (secs > 0 && nanos < 0) {
-		return fmt.Errorf("duration: seconds and nanos must have the same sign")
-	}
-	return nil
+	return protojsonxgen.ValidateDuration(secs, nanos)
 }

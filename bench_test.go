@@ -3,6 +3,7 @@ package protojsonx
 import (
 	"encoding/json"
 	"math/rand"
+	"slices"
 	"testing"
 	"time"
 
@@ -26,6 +27,7 @@ func shuffleJSONFields(data []byte, rng *rand.Rand) ([]byte, error) {
 	for k := range raw {
 		keys = append(keys, k)
 	}
+	slices.Sort(keys)
 	rng.Shuffle(len(keys), func(i, j int) { keys[i], keys[j] = keys[j], keys[i] })
 
 	out := []byte{'{'}

@@ -168,17 +168,16 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Id = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Id = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Id = v
 			}
-			x.Id = v
 		}
 	}
 	{
@@ -189,17 +188,16 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Email = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Email = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Email = v
 			}
-			x.Email = v
 		}
 	}
 	{
@@ -210,17 +208,16 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Name = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Name = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Name = v
 			}
-			x.Name = v
 		}
 	}
 	{
@@ -231,17 +228,16 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Age = 0
-		} else {
-			v, err := d.ReadInt32()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Age = 0
+			} else {
+				v, err := d.ReadInt32()
+				if err != nil {
+					return false, err
+				}
+				x.Age = v
 			}
-			x.Age = v
 		}
 	}
 	{
@@ -252,17 +248,16 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.IsActive = false
-		} else {
-			v, err := d.ReadBool()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.IsActive = false
+			} else {
+				v, err := d.ReadBool()
+				if err != nil {
+					return false, err
+				}
+				x.IsActive = v
 			}
-			x.IsActive = v
 		}
 	}
 	{
@@ -273,23 +268,22 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Status = 0
-		} else {
-			var v UserStatus
-			val, err := unmarshalEnum_UserStatus(d)
-			if err != nil {
-				if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
-				} else {
-					return false, err
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Status = 0
 			} else {
-				v = val
+				var v UserStatus
+				val, err := unmarshalEnum_UserStatus(d)
+				if err != nil {
+					if err == protojsonxgen.ErrUnknownEnum && discardUnknown {
+					} else {
+						return false, err
+					}
+				} else {
+					v = val
+				}
+				x.Status = v
 			}
-			x.Status = v
 		}
 	}
 	{
@@ -300,35 +294,34 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Tags = nil
-		} else {
-			values := x.Tags[:0]
-			if values == nil {
-				values = make([]string, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.Tags = nil
+			} else {
+				values := x.Tags[:0]
+				if values == nil {
+					values = make([]string, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
+						return false, err
+					}
+					if !elemOK {
+						break
+					}
+					v, err := d.ReadString()
+					if err != nil {
+						return false, err
+					}
+					values = append(values, v)
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return false, err
-				}
-				values = append(values, v)
+				x.Tags = values
 			}
-			x.Tags = values
 		}
 	}
 	{
@@ -339,35 +332,34 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Metadata = nil
-		} else {
-			m := make(map[string]string)
-			if err := d.BeginObject(); err != nil {
-				return false, err
-			}
-			mapFirst := true
-			for {
-				k, mapOK, err := d.NextObjectKey(&mapFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.Metadata = nil
+			} else {
+				m := make(map[string]string)
+				if err := d.BeginObject(); err != nil {
 					return false, err
 				}
-				if !mapOK {
-					break
+				mapFirst := true
+				for {
+					k, mapOK, err := d.NextObjectKey(&mapFirst)
+					if err != nil {
+						return false, err
+					}
+					if !mapOK {
+						break
+					}
+					v, err := d.ReadString()
+					if err != nil {
+						return false, err
+					}
+					if _, exists := m[k]; exists {
+						return false, protojsonxgen.DuplicateField(k)
+					}
+					m[k] = v
 				}
-				v, err := d.ReadString()
-				if err != nil {
-					return false, err
-				}
-				if _, exists := m[k]; exists {
-					return false, protojsonxgen.DuplicateField(k)
-				}
-				m[k] = v
+				x.Metadata = m
 			}
-			x.Metadata = m
 		}
 	}
 	{
@@ -378,24 +370,36 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Address = nil
-		} else {
-			x.Address = &Address{}
-			if fast, ok := any(x.Address).(interface {
-				unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-			}); ok {
-				if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-					return false, err
-				} else if !ok {
-					return false, nil
-				}
+		if status > 0 {
+			if d.ReadNull() {
+				x.Address = nil
 			} else {
-				if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
-					return false, err
+				x.Address = &Address{}
+				if fast, ok := any(x.Address).(interface {
+					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+				}); ok {
+					nestedOff, nestedDepth := d.Mark()
+					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+						return false, err
+					} else if !ok {
+						d.Reset(nestedOff, nestedDepth)
+						*x.Address = Address{}
+						if slow, ok := any(x.Address).(interface {
+							unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+						}); ok {
+							if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+								return false, err
+							}
+						} else {
+							if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
+								return false, err
+							}
+						}
+					}
+				} else {
+					if err := protojsonxgen.UnmarshalField(d, x.Address, discardUnknown); err != nil {
+						return false, err
+					}
 				}
 			}
 		}
@@ -408,48 +412,60 @@ func (x *UserProfile) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardU
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Sessions = nil
-		} else {
-			values := x.Sessions[:0]
-			if values == nil {
-				values = make([]*Session, 0, 4)
-			}
-			if err := d.BeginArray(); err != nil {
-				return false, err
-			}
-			arrayFirst := true
-			for {
-				elemOK, err := d.NextArrayElement(&arrayFirst)
-				if err != nil {
+		if status > 0 {
+			if d.ReadNull() {
+				x.Sessions = nil
+			} else {
+				values := x.Sessions[:0]
+				if values == nil {
+					values = make([]*Session, 0, 4)
+				}
+				if err := d.BeginArray(); err != nil {
 					return false, err
 				}
-				if !elemOK {
-					break
-				}
-				if d.ReadNull() {
-					return false, protojsonxgen.NullRepeatedMessage()
-				}
-				v := &Session{}
-				if fast, ok := any(v).(interface {
-					unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
-				}); ok {
-					if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
-						return false, err
-					} else if !ok {
-						return false, nil
-					}
-				} else {
-					if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+				arrayFirst := true
+				for {
+					elemOK, err := d.NextArrayElement(&arrayFirst)
+					if err != nil {
 						return false, err
 					}
+					if !elemOK {
+						break
+					}
+					if d.ReadNull() {
+						return false, protojsonxgen.NullRepeatedMessage()
+					}
+					v := &Session{}
+					if fast, ok := any(v).(interface {
+						unmarshalProtoJSONXFast(*protojsonxgen.Decoder, bool) (bool, error)
+					}); ok {
+						nestedOff, nestedDepth := d.Mark()
+						if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
+							return false, err
+						} else if !ok {
+							d.Reset(nestedOff, nestedDepth)
+							*v = Session{}
+							if slow, ok := any(v).(interface {
+								unmarshalProtoJSONXFrom(*protojsonxgen.Decoder, bool) error
+							}); ok {
+								if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {
+									return false, err
+								}
+							} else {
+								if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+									return false, err
+								}
+							}
+						}
+					} else {
+						if err := protojsonxgen.UnmarshalField(d, v, discardUnknown); err != nil {
+							return false, err
+						}
+					}
+					values = append(values, v)
 				}
-				values = append(values, v)
+				x.Sessions = values
 			}
-			x.Sessions = values
 		}
 	}
 	done, err := d.TryEndObject()
@@ -801,17 +817,16 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Street = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Street = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Street = v
 			}
-			x.Street = v
 		}
 	}
 	{
@@ -822,17 +837,16 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.City = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.City = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.City = v
 			}
-			x.City = v
 		}
 	}
 	{
@@ -843,17 +857,16 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.State = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.State = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.State = v
 			}
-			x.State = v
 		}
 	}
 	{
@@ -864,17 +877,16 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Zip = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Zip = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Zip = v
 			}
-			x.Zip = v
 		}
 	}
 	{
@@ -885,17 +897,16 @@ func (x *Address) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.Country = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.Country = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.Country = v
 			}
-			x.Country = v
 		}
 	}
 	done, err := d.TryEndObject()
@@ -1086,17 +1097,16 @@ func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.SessionId = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.SessionId = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.SessionId = v
 			}
-			x.SessionId = v
 		}
 	}
 	{
@@ -1107,17 +1117,16 @@ func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.LoginTimestamp = 0
-		} else {
-			v, err := d.ReadInt64()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.LoginTimestamp = 0
+			} else {
+				v, err := d.ReadInt64()
+				if err != nil {
+					return false, err
+				}
+				x.LoginTimestamp = v
 			}
-			x.LoginTimestamp = v
 		}
 	}
 	{
@@ -1128,17 +1137,16 @@ func (x *Session) unmarshalProtoJSONXFast(d *protojsonxgen.Decoder, discardUnkno
 		if status == 0 {
 			return true, nil
 		}
-		if status < 0 {
-			return false, nil
-		}
-		if d.ReadNull() {
-			x.IpAddress = ""
-		} else {
-			v, err := d.ReadString()
-			if err != nil {
-				return false, err
+		if status > 0 {
+			if d.ReadNull() {
+				x.IpAddress = ""
+			} else {
+				v, err := d.ReadString()
+				if err != nil {
+					return false, err
+				}
+				x.IpAddress = v
 			}
-			x.IpAddress = v
 		}
 	}
 	done, err := d.TryEndObject()

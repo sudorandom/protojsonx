@@ -254,7 +254,9 @@ func (e *Encoder) Timestamp(secs int64, nanos int32) error {
 	if err := ValidateTimestamp(secs, nanos); err != nil {
 		return err
 	}
-	e.String(FormatTimestamp(secs, nanos))
+	e.Byte('"')
+	e.buf = AppendTimestamp(e.buf, secs, nanos)
+	e.Byte('"')
 	return nil
 }
 
@@ -262,16 +264,32 @@ func (e *Encoder) Duration(secs int64, nanos int32) error {
 	if err := ValidateDuration(secs, nanos); err != nil {
 		return err
 	}
-	e.durationString(secs, nanos)
+	e.Byte('"')
+	e.buf = AppendDuration(e.buf, secs, nanos)
+	e.Byte('"')
 	return nil
 }
 
-func (e *Encoder) durationString(secs int64, nanos int32) {
-	e.Byte('"')
+func AppendTimestamp(buf []byte, secs int64, nanos int32) []byte {
+	t := time.Unix(secs, int64(nanos)).UTC()
+	buf = t.AppendFormat(buf, "2006-01-02T15:04:05")
+	if nanos != 0 {
+		buf = append(buf, '.')
+		if nanos%1_000_000 == 0 {
+			buf = appendPaddedInt32(buf, nanos/1_000_000, 3)
+		} else if nanos%1_000 == 0 {
+			buf = appendPaddedInt32(buf, nanos/1_000, 6)
+		} else {
+			buf = appendPaddedInt32(buf, nanos, 9)
+		}
+	}
+	return append(buf, 'Z')
+}
+
+func AppendDuration(buf []byte, secs int64, nanos int32) []byte {
 	if nanos == 0 {
-		e.buf = strconv.AppendInt(e.buf, secs, 10)
-		e.buf = append(e.buf, 's', '"')
-		return
+		buf = strconv.AppendInt(buf, secs, 10)
+		return append(buf, 's')
 	}
 
 	neg := secs < 0 || nanos < 0
@@ -292,15 +310,15 @@ func (e *Encoder) durationString(secs int64, nanos int32) {
 	}
 
 	if neg {
-		e.Byte('-')
+		buf = append(buf, '-')
 	}
-	e.buf = strconv.AppendInt(e.buf, secs, 10)
-	e.Byte('.')
-	e.appendPaddedInt32(nanos, fracWidth)
-	e.buf = append(e.buf, 's', '"')
+	buf = strconv.AppendInt(buf, secs, 10)
+	buf = append(buf, '.')
+	buf = appendPaddedInt32(buf, nanos, fracWidth)
+	return append(buf, 's')
 }
 
-func (e *Encoder) appendPaddedInt32(v int32, width int) {
+func appendPaddedInt32(buf []byte, v int32, width int) []byte {
 	var tmp [10]byte
 	i := len(tmp)
 	for {
@@ -313,25 +331,15 @@ func (e *Encoder) appendPaddedInt32(v int32, width int) {
 		}
 	}
 	for width > 0 {
-		e.Byte('0')
+		buf = append(buf, '0')
 		width--
 	}
-	e.buf = append(e.buf, tmp[i:]...)
+	return append(buf, tmp[i:]...)
 }
 
 func FormatTimestamp(secs int64, nanos int32) string {
-	t := time.Unix(secs, int64(nanos)).UTC()
-	base := t.Format("2006-01-02T15:04:05")
-	if nanos == 0 {
-		return base + "Z"
-	}
-	if nanos%1000000 == 0 {
-		return fmt.Sprintf("%s.%03dZ", base, nanos/1000000)
-	}
-	if nanos%1000 == 0 {
-		return fmt.Sprintf("%s.%06dZ", base, nanos/1000)
-	}
-	return fmt.Sprintf("%s.%09dZ", base, nanos)
+	var buf [32]byte
+	return string(AppendTimestamp(buf[:0], secs, nanos))
 }
 
 func FormatDuration(secs int64, nanos int32) string {
@@ -511,7 +519,7 @@ func (d *Decoder) readStringBytes() ([]byte, error) {
 			s := d.data[start:d.off]
 			d.off++
 			if hasEscapes {
-				return unescapeString(s)
+				return UnescapeString(s)
 			}
 			return s, nil
 		}
@@ -531,7 +539,7 @@ func (d *Decoder) readStringBytes() ([]byte, error) {
 	return nil, errors.New("unterminated string")
 }
 
-func unescapeString(s []byte) ([]byte, error) {
+func UnescapeString(s []byte) ([]byte, error) {
 	out := make([]byte, 0, len(s))
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -787,12 +795,6 @@ func (d *Decoder) readSimpleUint64Token() (uint64, bool, error) {
 }
 
 func (d *Decoder) ReadFloat32() (float32, error) {
-	d.skipWhitespace()
-	if d.off < len(d.data) && d.data[d.off] != '"' {
-		if v, ok, err := d.readSimpleFloatToken(); ok || err != nil {
-			return float32(v), err
-		}
-	}
 	s, err := d.readNumberLike()
 	if err != nil {
 		return 0, err
@@ -802,71 +804,11 @@ func (d *Decoder) ReadFloat32() (float32, error) {
 }
 
 func (d *Decoder) ReadFloat64() (float64, error) {
-	d.skipWhitespace()
-	if d.off < len(d.data) && d.data[d.off] != '"' {
-		if v, ok, err := d.readSimpleFloatToken(); ok || err != nil {
-			return v, err
-		}
-	}
 	s, err := d.readNumberLike()
 	if err != nil {
 		return 0, err
 	}
 	return strconv.ParseFloat(s, 64)
-}
-
-func (d *Decoder) readSimpleFloatToken() (float64, bool, error) {
-	start := d.off
-	neg := false
-	if d.off < len(d.data) && d.data[d.off] == '-' {
-		neg = true
-		d.off++
-	}
-	if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
-		d.off = start
-		return 0, false, nil
-	}
-	var intPart uint64
-	digits := 0
-	for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-		digits++
-		if digits > 17 {
-			d.off = start
-			return 0, false, nil
-		}
-		intPart = intPart*10 + uint64(d.data[d.off]-'0')
-		d.off++
-	}
-	var frac float64
-	if d.off < len(d.data) && d.data[d.off] == '.' {
-		d.off++
-		if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
-			d.off = start
-			return 0, false, nil
-		}
-		scale := 0.1
-		for d.off < len(d.data) && d.data[d.off] >= '0' && d.data[d.off] <= '9' {
-			frac += float64(d.data[d.off]-'0') * scale
-			scale *= 0.1
-			d.off++
-		}
-	}
-	if d.off < len(d.data) {
-		c := d.data[d.off]
-		if c == 'e' || c == 'E' {
-			d.off = start
-			return 0, false, nil
-		}
-		if !isJSONValueTerminator(c) {
-			d.off = start
-			return 0, false, nil
-		}
-	}
-	v := float64(intPart) + frac
-	if neg {
-		v = -v
-	}
-	return v, true, nil
 }
 
 func (d *Decoder) readNumberLike() (string, error) {
@@ -1032,6 +974,7 @@ func (d *Decoder) TryObjectFieldFast(first *bool, name string) (matched bool, do
 		d.depth--
 		return false, true, nil
 	}
+	savedOff := d.off
 	if !*first {
 		if d.data[d.off] != ',' {
 			return false, false, errors.New("expected ','")
@@ -1040,15 +983,18 @@ func (d *Decoder) TryObjectFieldFast(first *bool, name string) (matched bool, do
 		d.skipWhitespace()
 	}
 	if d.off >= len(d.data) || d.data[d.off] != '"' {
+		d.off = savedOff
 		return false, false, nil
 	}
 	d.off++
 	if len(d.data)-d.off < len(name)+1 || string(d.data[d.off:d.off+len(name)]) != name || d.data[d.off+len(name)] != '"' {
+		d.off = savedOff
 		return false, false, nil
 	}
 	d.off += len(name) + 1
 	d.skipWhitespace()
 	if d.off >= len(d.data) || d.data[d.off] != ':' {
+		d.off = savedOff
 		return false, false, errors.New("expected ':'")
 	}
 	d.off++
@@ -1612,27 +1558,27 @@ func WriteMap[K comparable, V any](e *Encoder, m map[K]V, keyToString func(K) st
 		return nil
 	}
 	e.Byte('{')
-	keys := make([]K, 0, len(m))
+	var arr [16]K
+	var keys []K
+	if len(m) <= len(arr) {
+		keys = arr[:0]
+	} else {
+		keys = make([]K, 0, len(m))
+	}
 	for k := range m {
 		keys = append(keys, k)
 	}
 	switch ts := any(keys).(type) {
+	case []string:
+		slices.Sort(ts)
 	case []int32:
-		slices.SortFunc(ts, func(a, b int32) int {
-			return cmp.Compare(a, b)
-		})
+		slices.Sort(ts)
 	case []int64:
-		slices.SortFunc(ts, func(a, b int64) int {
-			return cmp.Compare(a, b)
-		})
+		slices.Sort(ts)
 	case []uint32:
-		slices.SortFunc(ts, func(a, b uint32) int {
-			return cmp.Compare(a, b)
-		})
+		slices.Sort(ts)
 	case []uint64:
-		slices.SortFunc(ts, func(a, b uint64) int {
-			return cmp.Compare(a, b)
-		})
+		slices.Sort(ts)
 	case []bool:
 		slices.SortFunc(ts, func(a, b bool) int {
 			if !a && b {
@@ -1650,16 +1596,43 @@ func WriteMap[K comparable, V any](e *Encoder, m map[K]V, keyToString func(K) st
 		slices.SortFunc(keys, func(a, b K) int {
 			return cmp.Compare(keyStrings[a], keyStrings[b])
 		})
-	}
-	keyStrings := make(map[K]string, len(m))
-	for _, k := range keys {
-		keyStrings[k] = keyToString(k)
+		for i, k := range keys {
+			if i > 0 {
+				e.Byte(',')
+			}
+			e.String(keyStrings[k])
+			e.Byte(':')
+			if err := valEnc(e, m[k]); err != nil {
+				return err
+			}
+		}
+		e.Byte('}')
+		return nil
 	}
 	for i, k := range keys {
 		if i > 0 {
 			e.Byte(',')
 		}
-		e.String(keyStrings[k])
+		switch kv := any(k).(type) {
+		case string:
+			e.String(kv)
+		case int32:
+			e.Int64String(int64(kv))
+		case int64:
+			e.Int64String(kv)
+		case uint32:
+			e.Uint64String(uint64(kv))
+		case uint64:
+			e.Uint64String(kv)
+		case bool:
+			if kv {
+				e.Raw(`"true"`)
+			} else {
+				e.Raw(`"false"`)
+			}
+		default:
+			e.String(keyToString(k))
+		}
 		e.Byte(':')
 		if err := valEnc(e, m[k]); err != nil {
 			return err
@@ -1724,9 +1697,13 @@ func UnmarshalMessageMapValue[V any, PT interface {
 	if fast, ok := any(pt).(interface {
 		unmarshalProtoJSONXFast(*Decoder, bool) (bool, error)
 	}); ok {
+		off, depth := d.Mark()
 		if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {
 			return nil, err
 		} else if !ok {
+			d.Reset(off, depth)
+			var zero V
+			v = zero
 			if err := any(pt).(interface {
 				unmarshalProtoJSONXFrom(*Decoder, bool) error
 			}).unmarshalProtoJSONXFrom(d, discardUnknown); err != nil {

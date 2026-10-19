@@ -115,125 +115,10 @@ func (d *decBuffer) readStringBytes() ([]byte, error) {
 	return nil, errors.New("unterminated string")
 }
 
-// unescapeString handles common JSON escapes inline and falls back to the
-// standard JSON decoder only when \u handling is required.
+// unescapeString delegates to the shared allocation-free, control-char-validating
+// UTF-16 surrogate-aware unescaper in protojsonxgen.
 func unescapeString(s []byte) ([]byte, error) {
-	out := make([]byte, 0, len(s))
-	for i := 0; i < len(s); i++ {
-		if s[i] != '\\' {
-			out = append(out, s[i])
-			continue
-		}
-		i++
-		if i >= len(s) {
-			return nil, errors.New("unterminated escape sequence")
-		}
-		switch s[i] {
-		case 'n':
-			out = append(out, '\n')
-		case 'r':
-			out = append(out, '\r')
-		case 't':
-			out = append(out, '\t')
-		case 'b':
-			out = append(out, '\b')
-		case 'f':
-			out = append(out, '\f')
-		case '\\':
-			out = append(out, '\\')
-		case '/':
-			out = append(out, '/')
-		case '"':
-			out = append(out, '"')
-		case 'u':
-			return unescapeUnicodeString(s)
-		default:
-			return nil, errors.New("invalid escape sequence")
-		}
-	}
-	return out, nil
-}
-
-// unescapeUnicodeString delegates Unicode escape and surrogate-pair handling
-// to encoding/json. This is colder than simple escapes but keeps semantics
-// correct for non-ASCII escaped input.
-func unescapeUnicodeString(s []byte) ([]byte, error) {
-	if err := validateSurrogates(s); err != nil {
-		return nil, err
-	}
-	if len(s) > math.MaxInt-2 {
-		return nil, errors.New("string length exceeds maximum capacity")
-	}
-	quoted := make([]byte, 0, len(s)+2)
-	quoted = append(quoted, '"')
-	quoted = append(quoted, s...)
-	quoted = append(quoted, '"')
-	var out string
-	if err := json.Unmarshal(quoted, &out); err != nil {
-		return nil, err
-	}
-	return []byte(out), nil
-}
-
-func validateSurrogates(s []byte) error {
-	for i := 0; i < len(s); {
-		if s[i] == '\\' {
-			if i+1 >= len(s) {
-				return errors.New("incomplete escape")
-			}
-			if s[i+1] == 'u' {
-				if i+5 >= len(s) {
-					return errors.New("incomplete unicode escape")
-				}
-				r, err := parseHex4(s[i+2 : i+6])
-				if err != nil {
-					return err
-				}
-				if r >= 0xD800 && r <= 0xDBFF {
-					// High surrogate, must be followed by a low surrogate
-					i += 6
-					if i+5 >= len(s) || s[i] != '\\' || s[i+1] != 'u' {
-						return errors.New("unpaired high surrogate")
-					}
-					r2, err2 := parseHex4(s[i+2 : i+6])
-					if err2 != nil {
-						return err2
-					}
-					if r2 < 0xDC00 || r2 > 0xDFFF {
-						return errors.New("unpaired high surrogate")
-					}
-					i += 6
-				} else if r >= 0xDC00 && r <= 0xDFFF {
-					return errors.New("unpaired low surrogate")
-				} else {
-					i += 6
-				}
-			} else {
-				i += 2
-			}
-		} else {
-			i++
-		}
-	}
-	return nil
-}
-
-func parseHex4(b []byte) (rune, error) {
-	var r rune
-	for _, c := range b {
-		r <<= 4
-		switch {
-		case c >= '0' && c <= '9':
-			r |= rune(c - '0')
-		case c >= 'a' && c <= 'f':
-			r |= rune(c - 'a' + 10)
-		case c >= 'A' && c <= 'F':
-			r |= rune(c - 'A' + 10)
-		default:
-			return 0, errors.New("invalid hex character")
-		}
-	}
-	return r, nil
+	return protojsonxgen.UnescapeString(s)
 }
 
 func parseStringOrNumberToInt64(s string) (int64, error) {
@@ -317,9 +202,48 @@ func (d *decBuffer) readSimpleInt64Token() (int64, bool, error) {
 		d.off++
 	}
 	if neg {
+		if u == uint64(math.MaxInt64)+1 {
+			return math.MinInt64, true, nil
+		}
 		return -int64(u), true, nil
 	}
 	return int64(u), true, nil
+}
+
+func (d *decBuffer) readSimpleUint64Token() (uint64, bool, error) {
+	start := d.off
+	if d.off >= len(d.data) || d.data[d.off] < '0' || d.data[d.off] > '9' {
+		return 0, false, nil
+	}
+	if d.data[d.off] == '0' && d.off+1 < len(d.data) && d.data[d.off+1] >= '0' && d.data[d.off+1] <= '9' {
+		return 0, false, nil
+	}
+	var u uint64
+	for d.off < len(d.data) {
+		c := d.data[d.off]
+		if c < '0' || c > '9' {
+			if c == '.' || c == 'e' || c == 'E' {
+				d.off = start
+				return 0, false, nil
+			}
+			if !isJSONValueTerminator(c) {
+				d.off = start
+				return 0, false, nil
+			}
+			break
+		}
+		if u > math.MaxUint64/10 {
+			return 0, true, errors.New("integer out of range for uint64")
+		}
+		u *= 10
+		digit := uint64(c - '0')
+		if u > math.MaxUint64-digit {
+			return 0, true, errors.New("integer out of range for uint64")
+		}
+		u += digit
+		d.off++
+	}
+	return u, true, nil
 }
 
 func (d *decBuffer) readInt32() (int32, error) {
@@ -385,6 +309,17 @@ func (d *decBuffer) readInt64() (int64, error) {
 
 func (d *decBuffer) readUint32() (uint32, error) {
 	d.skipWhitespace()
+	if d.off < len(d.data) && d.data[d.off] != '"' {
+		if v, ok, err := d.readSimpleUint64Token(); ok || err != nil {
+			if err != nil {
+				return 0, err
+			}
+			if v > math.MaxUint32 {
+				return 0, fmt.Errorf("integer out of range for uint32: %d", v)
+			}
+			return uint32(v), nil
+		}
+	}
 	var s string
 	if d.off < len(d.data) && d.data[d.off] == '"' {
 		val, err := d.readStringBytes()
@@ -411,6 +346,11 @@ func (d *decBuffer) readUint32() (uint32, error) {
 
 func (d *decBuffer) readUint64() (uint64, error) {
 	d.skipWhitespace()
+	if d.off < len(d.data) && d.data[d.off] != '"' {
+		if v, ok, err := d.readSimpleUint64Token(); ok || err != nil {
+			return v, err
+		}
+	}
 	var s string
 	if d.off < len(d.data) && d.data[d.off] == '"' {
 		val, err := d.readStringBytes()
@@ -877,74 +817,30 @@ func (table *MessageTable) resetIfNeeded(ptr unsafe.Pointer) {
 	if table.isZero(ptr) {
 		return
 	}
-	for _, inst := range table.fields {
-		fieldPtr := unsafe.Add(ptr, inst.offset)
-		if inst.goPointer {
-			*(*unsafe.Pointer)(fieldPtr) = nil
-			continue
-		}
-		switch inst.ftype {
-		case TypeString:
-			*(*string)(fieldPtr) = ""
-		case TypeInt32, TypeEnum:
-			*(*int32)(fieldPtr) = 0
-		case TypeInt64:
-			*(*int64)(fieldPtr) = 0
-		case TypeUint32:
-			*(*uint32)(fieldPtr) = 0
-		case TypeUint64:
-			*(*uint64)(fieldPtr) = 0
-		case TypeFloat32:
-			*(*float32)(fieldPtr) = 0
-		case TypeFloat64:
-			*(*float64)(fieldPtr) = 0
-		case TypeBool:
-			*(*bool)(fieldPtr) = false
-		case TypeBytes:
-			*(*[]byte)(fieldPtr) = nil
-		case TypeRepeatedString:
-			*(*[]string)(fieldPtr) = nil
-		case TypeRepeatedInt32, TypeRepeatedEnum:
-			*(*[]int32)(fieldPtr) = nil
-		case TypeRepeatedInt64:
-			*(*[]int64)(fieldPtr) = nil
-		case TypeRepeatedUint32:
-			*(*[]uint32)(fieldPtr) = nil
-		case TypeRepeatedUint64:
-			*(*[]uint64)(fieldPtr) = nil
-		case TypeRepeatedFloat32:
-			*(*[]float32)(fieldPtr) = nil
-		case TypeRepeatedFloat64:
-			*(*[]float64)(fieldPtr) = nil
-		case TypeRepeatedBool:
-			*(*[]bool)(fieldPtr) = nil
-		case TypeRepeatedBytes:
-			*(*[][]byte)(fieldPtr) = nil
-		case TypeMapStringString:
-			*(*map[string]string)(fieldPtr) = nil
-		case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty, TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
-			*(*unsafe.Pointer)(fieldPtr) = nil
-		case TypeOneofField, TypeMapField:
-			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
-			pref.Clear(inst.fd)
-		case TypeRepeatedMessage:
-			*(*[]unsafe.Pointer)(fieldPtr) = nil
-		}
+	var pref protoreflect.Message
+	for i := range table.fields {
+		table.clearFieldWithReflect(ptr, &table.fields[i], &pref)
 	}
 }
 
 // clearMissing applies protobuf default semantics for fields that were absent
 // from a successful object decode.
 func (table *MessageTable) clearMissing(ptr unsafe.Pointer, seen uint64) {
+	var pref protoreflect.Message
 	for i := range table.fields {
 		if seen&(uint64(1)<<uint(i)) == 0 {
-			table.clearField(ptr, &table.fields[i])
+			table.clearFieldWithReflect(ptr, &table.fields[i], &pref)
 		}
 	}
 }
 
 // clearField writes the Go zero value for one supported field shape.
 func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction) {
+	var pref protoreflect.Message
+	table.clearFieldWithReflect(ptr, inst, &pref)
+}
+
+func (table *MessageTable) clearFieldWithReflect(ptr unsafe.Pointer, inst *fieldInstruction, pref *protoreflect.Message) {
 	fieldPtr := unsafe.Add(ptr, inst.offset)
 	if inst.goPointer {
 		*(*unsafe.Pointer)(fieldPtr) = nil
@@ -992,8 +888,10 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 	case TypeMessage, TypeTimestamp, TypeDuration, TypeProtojsonWellKnown, TypeDoubleValue, TypeFloatValue, TypeInt64Value, TypeUint64Value, TypeInt32Value, TypeUint32Value, TypeBoolValue, TypeStringValue, TypeBytesValue, TypeEmpty, TypeFieldMask, TypeStruct, TypeValue, TypeListValue, TypeAny:
 		*(*unsafe.Pointer)(fieldPtr) = nil
 	case TypeOneofField, TypeMapField:
-		pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
-		pref.Clear(inst.fd)
+		if *pref == nil {
+			*pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+		}
+		(*pref).Clear(inst.fd)
 	case TypeRepeatedMessage:
 		*(*[]unsafe.Pointer)(fieldPtr) = nil
 	}
@@ -1002,6 +900,7 @@ func (table *MessageTable) clearField(ptr unsafe.Pointer, inst *fieldInstruction
 // isZero checks the supported protobuf field storage without touching runtime
 // message state. It is used only by the wide-message fallback.
 func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
+	var pref protoreflect.Message
 	for _, inst := range table.fields {
 		fieldPtr := unsafe.Add(ptr, inst.offset)
 		if inst.goPointer {
@@ -1092,12 +991,16 @@ func (table *MessageTable) isZero(ptr unsafe.Pointer) bool {
 				return false
 			}
 		case TypeOneofField:
-			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			if pref == nil {
+				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			}
 			if pref.Has(inst.fd) {
 				return false
 			}
 		case TypeMapField:
-			pref := reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			if pref == nil {
+				pref = reflect.NewAt(table.goType, ptr).Interface().(proto.Message).ProtoReflect()
+			}
 			if pref.Get(inst.fd).Map().Len() != 0 {
 				return false
 			}

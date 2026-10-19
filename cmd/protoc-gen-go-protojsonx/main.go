@@ -170,8 +170,9 @@ func generateMessageUnmarshalFast(g *protogen.GeneratedFile, helperPackage proto
 		g.P("status, err := d.MatchFast(&fastFirst, ", strconvQuote(field.Desc.JSONName()), ")")
 		g.P("if err != nil { return false, err }")
 		g.P("if status == 0 { return true, nil }")
-		g.P("if status < 0 { return false, nil }")
+		g.P("if status > 0 {")
 		generateFieldUnmarshalFast(g, helperPackage, field)
+		g.P("}")
 		g.P("}")
 	}
 	g.P("done, err := d.TryEndObject()")
@@ -403,14 +404,23 @@ func generateMessageUnmarshalFastField(g *protogen.GeneratedFile, helperPackage 
 	} else {
 		g.P(target, " = &", field.Message.GoIdent, "{}")
 	}
-	g.P("if fast, ok := any(", target, ").(interface{ unmarshalProtoJSONXFast(*", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"}), ", bool) (bool, error) }); ok {")
+	decoderIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "Decoder"})
+	unmarshalFieldIdent := g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnmarshalField"})
+	g.P("if fast, ok := any(", target, ").(interface{ unmarshalProtoJSONXFast(*", decoderIdent, ", bool) (bool, error) }); ok {")
+	g.P("nestedOff, nestedDepth := d.Mark()")
 	g.P("if ok, err := fast.unmarshalProtoJSONXFast(d, discardUnknown); err != nil {")
 	g.P("return false, err")
 	g.P("} else if !ok {")
-	g.P("return false, nil")
+	g.P("d.Reset(nestedOff, nestedDepth)")
+	g.P("*", target, " = ", field.Message.GoIdent, "{}")
+	g.P("if slow, ok := any(", target, ").(interface{ unmarshalProtoJSONXFrom(*", decoderIdent, ", bool) error }); ok {")
+	g.P("if err := slow.unmarshalProtoJSONXFrom(d, discardUnknown); err != nil { return false, err }")
+	g.P("} else {")
+	g.P("if err := ", unmarshalFieldIdent, "(d, ", target, ", discardUnknown); err != nil { return false, err }")
+	g.P("}")
 	g.P("}")
 	g.P("} else {")
-	g.P("if err := ", g.QualifiedGoIdent(protogen.GoIdent{GoImportPath: helperPackage, GoName: "UnmarshalField"}), "(d, ", target, ", discardUnknown); err != nil { return false, err }")
+	g.P("if err := ", unmarshalFieldIdent, "(d, ", target, ", discardUnknown); err != nil { return false, err }")
 	g.P("}")
 }
 
@@ -1441,37 +1451,53 @@ func mapValueDecoderExpr(g *protogen.GeneratedFile, valDesc protoreflect.FieldDe
 	return "nil"
 }
 
+var emittedExternalEnums = make(map[protogen.GoImportPath]map[string]bool)
+
 func collectEnums(file *protogen.File) []*protogen.Enum {
 	var enums []*protogen.Enum
 	seen := make(map[string]bool)
 
-	var collectMsg func(m *protogen.Message)
-	collectMsg = func(m *protogen.Message) {
+	for _, enum := range file.Enums {
+		name := string(enum.Desc.FullName())
+		if !seen[name] {
+			seen[name] = true
+			enums = append(enums, enum)
+		}
+	}
+
+	var collectMsgEnums func(m *protogen.Message)
+	collectMsgEnums = func(m *protogen.Message) {
 		if m.Desc.IsMapEntry() {
 			return
 		}
-		for _, f := range m.Fields {
-			if f.Desc.Kind() == protoreflect.EnumKind && f.Enum != nil {
-				name := string(f.Enum.Desc.FullName())
-				if !seen[name] {
-					seen[name] = true
-					enums = append(enums, f.Enum)
-				}
+		for _, enum := range m.Enums {
+			name := string(enum.Desc.FullName())
+			if !seen[name] {
+				seen[name] = true
+				enums = append(enums, enum)
 			}
-			if f.Desc.IsMap() && f.Desc.MapValue().Kind() == protoreflect.EnumKind && f.Enum != nil {
+		}
+		for _, f := range m.Fields {
+			if f.Enum != nil && f.Enum.GoIdent.GoImportPath != file.GoImportPath {
 				name := string(f.Enum.Desc.FullName())
-				if !seen[name] {
+				pkgSeen := emittedExternalEnums[file.GoImportPath]
+				if pkgSeen == nil {
+					pkgSeen = make(map[string]bool)
+					emittedExternalEnums[file.GoImportPath] = pkgSeen
+				}
+				if !seen[name] && !pkgSeen[name] {
 					seen[name] = true
+					pkgSeen[name] = true
 					enums = append(enums, f.Enum)
 				}
 			}
 		}
 		for _, nested := range m.Messages {
-			collectMsg(nested)
+			collectMsgEnums(nested)
 		}
 	}
 	for _, m := range file.Messages {
-		collectMsg(m)
+		collectMsgEnums(m)
 	}
 	return enums
 }
